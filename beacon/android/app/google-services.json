@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "459182418917",
+    "project_id": "beacon-d39ea",
+    "storage_bucket": "beacon-d39ea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:459182418917:android:6e8028e03aa408e500dd0c",
+        "android_client_info": {
+          "package_name": "com.example.app_ui"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfNRE_iVKJi0ASZAlzE0rs7SVRazcPgRc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:459182418917:android:b44d13fd4f20299700dd0c",
+        "android_client_info": {
+          "package_name": "com.example.beacon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfNRE_iVKJi0ASZAlzE0rs7SVRazcPgRc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

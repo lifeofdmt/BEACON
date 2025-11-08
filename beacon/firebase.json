@@ -1,0 +1,1 @@
+{"flutter":{"platforms":{"android":{"default":{"projectId":"beacon-d39ea","appId":"1:459182418917:android:b44d13fd4f20299700dd0c","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"beacon-d39ea","configurations":{"android":"1:459182418917:android:b44d13fd4f20299700dd0c","ios":"1:459182418917:ios:8f1a9f8ecf5d762a00dd0c"}}}}}}

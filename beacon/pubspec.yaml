@@ -1,5 +1,5 @@
 name: beacon
-description: "A new Flutter project."
+description: "The official SBU BEACON app"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -34,6 +34,15 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  firebase_core: ^4.2.1
+  shared_preferences: ^2.5.3
+  firebase_auth: ^6.1.2
+  http: ^1.5.0
+  lottie: ^3.3.2
+  flutter_polyline_points: ^3.1.0
+  google_maps_flutter: ^2.14.0
+  location: ^8.0.1
+  flutter_svg: ^2.2.2
 
 dev_dependencies:
   flutter_test:
@@ -58,8 +67,12 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+   - assets/lotties/welcome.json
+   - assets/lotties/splash.json
+   - assets/lotties/wolf_walk.json
+   - assets/images/placeholder.png
+   - assets/images/google_logo.avif
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
