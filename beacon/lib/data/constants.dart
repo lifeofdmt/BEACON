@@ -8,7 +8,7 @@ class KConstants
 }
 
 class KTextStyle {
-  static const TextStyle titleTealText = TextStyle(color: Colors.teal, 
+  static const TextStyle titleTealText = TextStyle(
   fontSize: 18, fontWeight: 
   FontWeight.w900);
 

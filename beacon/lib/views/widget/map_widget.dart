@@ -106,7 +106,8 @@ class _MapWidgetState extends State<MapWidget> {
             key: const ValueKey("loading"),
             child: Hero(
               tag: "hero_1",
-              child: Lottie.asset("assets/lotties/wolf_walk.json"),
+              child: Column(children: [Lottie.asset("assets/lotties/wolf_walk.json"),
+              Text('Loading.....')]),
             ),
           );
         }

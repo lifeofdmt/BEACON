@@ -43,6 +43,8 @@ dependencies:
   google_maps_flutter: ^2.14.0
   location: ^8.0.1
   flutter_svg: ^2.2.2
+  wheel_picker: ^0.2.2
+  flutter_color_picker_wheel: ^0.0.1
 
 dev_dependencies:
   flutter_test:
@@ -73,6 +75,9 @@ flutter:
    - assets/lotties/wolf_walk.json
    - assets/images/placeholder.png
    - assets/images/google_logo.avif
+   - assets/images/logo.png
+   - assets/images/logo_transparent.png
+
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
