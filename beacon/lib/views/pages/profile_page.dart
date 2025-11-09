@@ -26,6 +26,18 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   String _settingsMessage = "";
   String _displayName = "";
   bool _isLoading = true;
+  // Character selection state
+  final List<String> _characterAssets = const [
+    'assets/characters/char.jpg',
+    'assets/characters/char1.jpg',
+    'assets/characters/char2.jpg',
+    'assets/characters/char4.jpg',
+    'assets/characters/char5.jpg',
+    'assets/characters/char6.jpg',
+    'assets/characters/char7.jpg',
+  ];
+  int _currentCharIndex = 0;
+  String? _selectedCharacterAsset;
 
   Future<void> _loadUserData() async {
     setState(() {
@@ -41,6 +53,14 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           setState(() {
             _displayName = data['displayName'] ?? 'Anonymous';
             _aboutMeController.text = data['about'];
+            final savedChar = data['character']?.toString();
+            if (savedChar != null && _characterAssets.contains(savedChar)) {
+              _selectedCharacterAsset = savedChar;
+              _currentCharIndex = _characterAssets.indexOf(savedChar);
+            } else {
+              _selectedCharacterAsset = _characterAssets.first;
+              _currentCharIndex = 0;
+            }
           });
         }
       }
@@ -70,6 +90,25 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     } catch (e) {
       setState(() {
         _settingsMessage = "Failed to update about me";
+      });
+    }
+  }
+
+  Future<void> _updateCharacter(String assetPath) async {
+    try {
+      final user = authService.value.currentuser;
+      if (user != null) {
+        await DatabaseService().update(
+          path: "users/${user.uid}",
+          data: {"character": assetPath},
+        );
+        setState(() {
+          _settingsMessage = "Character updated!";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _settingsMessage = "Failed to update character";
       });
     }
   }
@@ -128,9 +167,16 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        AnimatedSwitcher(
-                          duration: Duration(milliseconds: 500),
-                          child: Icon(Icons.arrow_left, size: 32, color: Colors.white, key: ValueKey("left")),
+                        IconButton(
+                          icon: Icon(Icons.chevron_left, color: Colors.white),
+                          iconSize: 32,
+                          onPressed: _isLoading ? null : () async {
+                            setState(() {
+                              _currentCharIndex = (_currentCharIndex - 1 + _characterAssets.length) % _characterAssets.length;
+                              _selectedCharacterAsset = _characterAssets[_currentCharIndex];
+                            });
+                            await _updateCharacter(_selectedCharacterAsset!);
+                          },
                         ),
                         Container(
                           decoration: BoxDecoration(
@@ -142,12 +188,19 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                           ),
                           child: CircleAvatar(
                             radius: 50,
-                            backgroundImage: AssetImage("assets/images/logo_transparent.png"),
+                            backgroundImage: AssetImage(_selectedCharacterAsset ?? _characterAssets.first),
                           ),
                         ),
-                        AnimatedSwitcher(
-                          duration: Duration(milliseconds: 500),
-                          child: Icon(Icons.arrow_right, size: 32, color: Colors.white, key: ValueKey("right")),
+                        IconButton(
+                          icon: Icon(Icons.chevron_right, color: Colors.white),
+                          iconSize: 32,
+                          onPressed: _isLoading ? null : () async {
+                            setState(() {
+                              _currentCharIndex = (_currentCharIndex + 1) % _characterAssets.length;
+                              _selectedCharacterAsset = _characterAssets[_currentCharIndex];
+                            });
+                            await _updateCharacter(_selectedCharacterAsset!);
+                          },
                         ),
                       ],
                     ),
@@ -171,6 +224,95 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                         ),
                       ),
                   ],
+                ),
+              ),
+              SizedBox(height: 20),
+              // Character chooser section
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                elevation: 6,
+                color: Theme.of(context).colorScheme.surface,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.face_retouching_natural, color: Theme.of(context).colorScheme.primary),
+                          SizedBox(width: 8),
+                          Text(
+                            'Choose your character',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 12),
+                      SizedBox(
+                        height: 110,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _characterAssets.length,
+                          separatorBuilder: (_, __) => SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final asset = _characterAssets[index];
+                            final isSelected = index == _currentCharIndex;
+                            return GestureDetector(
+                              onTap: () async {
+                                setState(() {
+                                  _currentCharIndex = index;
+                                  _selectedCharacterAsset = asset;
+                                });
+                                await _updateCharacter(asset);
+                              },
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                padding: EdgeInsets.all(isSelected ? 6 : 4),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: isSelected
+                                      ? LinearGradient(colors: [
+                                          Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                          Theme.of(context).colorScheme.secondary.withOpacity(0.2),
+                                        ])
+                                      : null,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).colorScheme.outlineVariant,
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                                            blurRadius: 10,
+                                            offset: Offset(0, 4),
+                                          )
+                                        ]
+                                      : [],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.asset(
+                                    asset,
+                                    width: 90,
+                                    height: 90,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               SizedBox(height: 20),

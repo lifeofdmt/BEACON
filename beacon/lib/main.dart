@@ -1,7 +1,6 @@
 import 'package:beacon/data/constants.dart';
 import 'package:beacon/data/notifiers.dart';
 import 'package:beacon/views/pages/auth_layout.dart';
-import 'package:beacon/views/pages/welcome_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
