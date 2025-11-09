@@ -3,7 +3,7 @@
 
 <img src="readme_assets//welcome_page.png" alt="Welcome Page" width="50%" height="50%">
 ---
-# 🚀 BEACON: Cut the Crap. Connect Instantly.
+*🚀 BEACON: Cut the Crap. Connect Instantly.*
 
 **BEACON** is the app designed to help you skip the fluff and meet people who share your interests—fast.
 
