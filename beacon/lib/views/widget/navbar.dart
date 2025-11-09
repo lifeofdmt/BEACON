@@ -12,6 +12,7 @@ class NavBar extends StatelessWidget {
           NavigationDestination(icon: Icon(Icons.home), label: "Home"),
           NavigationDestination(icon: Icon(Icons.person), label: "Profile"),
           NavigationDestination(icon: Icon(Icons.radar), label: "Beacons"),
+          NavigationDestination(icon: Icon(Icons.star), label: "Favorites"),
         ],
           selectedIndex: selectedPage,
           onDestinationSelected: (value){

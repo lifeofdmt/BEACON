@@ -686,12 +686,21 @@ class _BeaconPageState extends State<BeaconPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      _FavoriteIndicator(beaconId: b['id']?.toString() ?? ''),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Wrap(
@@ -760,6 +769,8 @@ class _BeaconPageState extends State<BeaconPage>
                       ),
                       child: Text(isOwnBeacon ? 'Your Beacon' : 'Accept'),
                     ),
+                    const SizedBox(height: 6),
+                    _FavoriteToggle(beaconId: b['id']?.toString() ?? ''),
                     TextButton(
                       onPressed: () => _showBeaconDetails(b),
                       child: const Text('Details'),
@@ -815,6 +826,33 @@ class _BeaconPageState extends State<BeaconPage>
           },
         },
       );
+
+      // Record acceptance in user's history ONLY if favorited
+      try {
+        final favSnap = await DatabaseService()
+            .read(path: 'userFavorites/${user.uid}/$id');
+        if (favSnap?.value != null) {
+          final nowIso = DateTime.now().toIso8601String();
+          await DatabaseService().update(
+            path: 'userHistory/${user.uid}/accepted/$id',
+            data: {
+              'beaconId': id,
+              'name': (beacon['name'] ?? '').toString(),
+              'category': (beacon['category'] ?? '').toString(),
+              'createdBy': (beacon['createdBy'] ?? '').toString(),
+              'acceptedAt': nowIso,
+              'status': 'accepted',
+              'acceptedLocation': {
+                'latitude': locationData.latitude,
+                'longitude': locationData.longitude,
+              },
+            },
+          );
+        }
+      } catch (e) {
+        // Non-fatal: history is best-effort
+        debugPrint('History conditional write failed: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -945,6 +983,23 @@ class _BeaconPageState extends State<BeaconPage>
           .ref('beacons/$beaconId/acceptedBy/$userId')
           .remove();
 
+      // Update user's history status to cancelled only if history exists
+      try {
+        final histSnap = await DatabaseService()
+            .read(path: 'userHistory/$userId/accepted/$beaconId');
+        if (histSnap?.value != null) {
+          await DatabaseService().update(
+            path: 'userHistory/$userId/accepted/$beaconId',
+            data: {
+              'status': 'cancelled',
+              'cancelledAt': DateTime.now().toIso8601String(),
+            },
+          );
+        }
+      } catch (e) {
+        debugPrint('History cancel update failed: $e');
+      }
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Beacon cancelled successfully')),
@@ -979,6 +1034,23 @@ class _BeaconPageState extends State<BeaconPage>
           'completedAt': DateTime.now().toIso8601String(),
         },
       );
+
+      // Update user's history status to completed only if history exists
+      try {
+        final histSnap = await DatabaseService()
+            .read(path: 'userHistory/$userId/accepted/$beaconId');
+        if (histSnap?.value != null) {
+          await DatabaseService().update(
+            path: 'userHistory/$userId/accepted/$beaconId',
+            data: {
+              'status': 'completed',
+              'completedAt': DateTime.now().toIso8601String(),
+            },
+          );
+        }
+      } catch (e) {
+        debugPrint('History complete update failed: $e');
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1128,6 +1200,7 @@ class _BeaconPageState extends State<BeaconPage>
                         ],
                       ),
                     ),
+                    _FavoriteToggle(beaconId: beacon['id']?.toString() ?? ''),
                   ],
                 ),
                 if (description.isNotEmpty) ...[
@@ -1265,6 +1338,140 @@ class _DetailRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FavoriteToggle extends StatefulWidget {
+  final String beaconId;
+  const _FavoriteToggle({required this.beaconId});
+
+  @override
+  State<_FavoriteToggle> createState() => _FavoriteToggleState();
+}
+
+class _FavoriteToggleState extends State<_FavoriteToggle> {
+  bool _loading = false;
+  bool _isFav = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final user = authService.value.currentuser;
+    if (user == null || widget.beaconId.isEmpty) return;
+    try {
+      final snap = await DatabaseService()
+          .read(path: 'userFavorites/${user.uid}/${widget.beaconId}');
+      if (mounted) setState(() => _isFav = snap?.value != null);
+    } catch (_) {}
+  }
+
+  Future<void> _toggle() async {
+    final user = authService.value.currentuser;
+    if (user == null || widget.beaconId.isEmpty) return;
+    setState(() => _loading = true);
+    try {
+      if (_isFav) {
+        await DatabaseService().delete(
+          path: 'userFavorites/${user.uid}/${widget.beaconId}',
+        );
+      } else {
+        await DatabaseService().update(
+          path: 'userFavorites/${user.uid}',
+          data: {
+            widget.beaconId: {
+              'addedAt': DateTime.now().toIso8601String(),
+            },
+          },
+        );
+      }
+      if (mounted) setState(() => _isFav = !_isFav);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Favorite toggle failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: _loading ? null : _toggle,
+      icon: _loading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              _isFav ? Icons.star : Icons.star_border,
+              color: _isFav ? Colors.amber : null,
+            ),
+      tooltip: _isFav ? 'Remove favorite' : 'Add to favorites',
+    );
+  }
+}
+
+class _FavoriteIndicator extends StatefulWidget {
+  final String beaconId;
+  const _FavoriteIndicator({required this.beaconId});
+
+  @override
+  State<_FavoriteIndicator> createState() => _FavoriteIndicatorState();
+}
+
+class _FavoriteIndicatorState extends State<_FavoriteIndicator> {
+  bool _isFav = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final user = authService.value.currentuser;
+    if (user == null || widget.beaconId.isEmpty) return;
+    try {
+      final snap = await DatabaseService()
+          .read(path: 'userFavorites/${user.uid}/${widget.beaconId}');
+      if (mounted) setState(() => _isFav = snap?.value != null);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isFav) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.withOpacity(0.6)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star, color: Colors.amber, size: 16),
+          SizedBox(width: 4),
+          Text(
+            'Favorited',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
