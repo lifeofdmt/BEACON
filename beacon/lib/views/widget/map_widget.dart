@@ -27,7 +27,9 @@ class _MapWidgetState extends State<MapWidget> {
   google_maps.BitmapDescriptor destinationIcon = google_maps.BitmapDescriptor.defaultMarker;
   google_maps.BitmapDescriptor currentIcon = google_maps.BitmapDescriptor.defaultMarker;
 
+
   late Future<LocationData> locationFuture;
+  bool _iconsLoaded = false;
 
   Future<LocationData> fetchInitialLocation() async {
     Location location = Location();
@@ -39,7 +41,6 @@ class _MapWidgetState extends State<MapWidget> {
   void getCurrentLocationStream() async {
     Location location = Location();
     google_maps.GoogleMapController googleMapController = await _controller.future;
-
     location.onLocationChanged.listen((newLoc) {
       currentLocation = newLoc;
       googleMapController.animateCamera(
@@ -54,7 +55,7 @@ class _MapWidgetState extends State<MapWidget> {
     });
   }
 
-  void setCustomMarkerIcon() async {
+  Future<void> setCustomMarkerIcon() async {
     sourceIcon = await google_maps.BitmapDescriptor.asset(
       const ImageConfiguration(),
       "assets/images/placeholder.png", width: 55
@@ -66,6 +67,7 @@ class _MapWidgetState extends State<MapWidget> {
     currentIcon = await google_maps.BitmapDescriptor.asset(
       const ImageConfiguration(),
       "assets/images/placeholder.png", width: 55);
+    setState(() { _iconsLoaded = true; });
   }
 
   void getPolyPoints() async {
@@ -91,9 +93,10 @@ class _MapWidgetState extends State<MapWidget> {
   void initState() {
     super.initState();
     locationFuture = fetchInitialLocation();
-    getCurrentLocationStream();
-    setCustomMarkerIcon();
-    getPolyPoints();
+    setCustomMarkerIcon().then((_) {
+      getCurrentLocationStream();
+      getPolyPoints();
+    });
   }
 
   @override
@@ -101,51 +104,72 @@ class _MapWidgetState extends State<MapWidget> {
     return FutureBuilder<LocationData>(
       future: locationFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (!snapshot.hasData || !_iconsLoaded) {
           return Center(
             key: const ValueKey("loading"),
-            child: Hero(
-              tag: "hero_1",
-              child: Column(children: [Lottie.asset("assets/lotties/wolf_walk.json"),
-              Text('Loading.....')]),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Hero(
+                  tag: "hero_1",
+                  child: Lottie.asset("assets/lotties/wolf_walk.json", height: 180),
+                ),
+                SizedBox(height: 20),
+                Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Center(
+                    child: Lottie.asset("assets/lotties/splash.json", height: 120),
+                  ),
+                ),
+                SizedBox(height: 20),
+                Text('Loading map...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+              ],
             ),
           );
         }
 
         final location = snapshot.data!;
-        return google_maps.GoogleMap(
-          initialCameraPosition: google_maps.CameraPosition(
-            target: google_maps.LatLng(location.latitude!, location.longitude!),
-            zoom: 14.5,
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: google_maps.GoogleMap(
+            initialCameraPosition: google_maps.CameraPosition(
+              target: google_maps.LatLng(location.latitude!, location.longitude!),
+              zoom: 14.5,
+            ),
+            polylines: {
+              google_maps.Polyline(
+                polylineId: const google_maps.PolylineId("route"),
+                points: polylineCoordinates,
+                color: Colors.red,
+                width: 6,
+              ),
+            },
+            markers: {
+              google_maps.Marker(
+                markerId: const google_maps.MarkerId("currentLocation"),
+                position: google_maps.LatLng(location.latitude!, location.longitude!),
+                icon: currentIcon,
+              ),
+              google_maps.Marker(
+                markerId: const google_maps.MarkerId("source"),
+                position: source,
+                icon: sourceIcon,
+              ),
+              google_maps.Marker(
+                markerId: const google_maps.MarkerId("destination"),
+                position: destination,
+                icon: destinationIcon,
+              ),
+            },
+            onMapCreated: (mapController) {
+              _controller.complete(mapController);
+            },
           ),
-          polylines: {
-            google_maps.Polyline(
-              polylineId: const google_maps.PolylineId("route"),
-              points: polylineCoordinates,
-              color: Colors.red,
-              width: 6,
-            ),
-          },
-          markers: {
-            google_maps.Marker(
-              markerId: const google_maps.MarkerId("currentLocation"),
-              position: google_maps.LatLng(location.latitude!, location.longitude!),
-              icon: currentIcon,
-            ),
-            google_maps.Marker(
-              markerId: const google_maps.MarkerId("source"),
-              position: source,
-              icon: sourceIcon,
-            ),
-            google_maps.Marker(
-              markerId: const google_maps.MarkerId("destination"),
-              position: destination,
-              icon: destinationIcon,
-            ),
-          },
-          onMapCreated: (mapController) {
-            _controller.complete(mapController);
-          },
         );
       },
     );
