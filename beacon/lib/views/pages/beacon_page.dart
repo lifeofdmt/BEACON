@@ -27,6 +27,8 @@ class _BeaconPageState extends State<BeaconPage>
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchFocused = false;
   StreamSubscription<BeaconAcceptanceEvent>? _acceptanceSubscription;
+  // Prevent concurrent cancel/complete actions causing duplicate writes
+  bool _processingAction = false;
 
   final List<String> _categories = ['All', ...BeaconCategories.all];
 
@@ -1140,7 +1142,17 @@ class _BeaconPageState extends State<BeaconPage>
     String beaconId,
     String userId,
   ) async {
+    if (_processingAction) return; // Guard against double taps
+    if (beaconId.isEmpty || userId.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid beacon/user ID')),
+        );
+      }
+      return;
+    }
     try {
+      setState(() => _processingAction = true);
       // Remove the user's acceptance from the beacon
       await FirebaseDatabase.instance
           .ref('beacons/$beaconId/acceptedBy/$userId')
@@ -1169,7 +1181,8 @@ class _BeaconPageState extends State<BeaconPage>
         );
         // Only pop if we are on a pushed route (e.g., map screen), not the main beacon page itself.
         if (Navigator.canPop(context)) {
-          Navigator.of(context).pop();
+          // Try-catch to avoid exceptions if already popped by other logic
+          try { Navigator.of(context).pop(); } catch (_) {}
         }
         // Trigger rebuild so the active beacon banner updates immediately.
         if (mounted) setState(() {});
@@ -1180,6 +1193,8 @@ class _BeaconPageState extends State<BeaconPage>
           SnackBar(content: Text('Error cancelling beacon: ${e.toString()}')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _processingAction = false);
     }
   }
 
@@ -1188,7 +1203,17 @@ class _BeaconPageState extends State<BeaconPage>
     String beaconId,
     String userId,
   ) async {
+    if (_processingAction) return; // Guard against double taps
+    if (beaconId.isEmpty || userId.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid beacon/user ID')),
+        );
+      }
+      return;
+    }
     try {
+      setState(() => _processingAction = true);
       // Mark the beacon as completed by updating the status
       await DatabaseService().update(
         path: 'beacons/$beaconId/acceptedBy/$userId',
@@ -1222,8 +1247,10 @@ class _BeaconPageState extends State<BeaconPage>
             backgroundColor: Colors.green,
           ),
         );
-        // Navigate back to beacon list
-        Navigator.of(context).pop();
+        // Navigate back to beacon list if possible
+        if (Navigator.canPop(context)) {
+          try { Navigator.of(context).pop(); } catch (_) {}
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -1231,6 +1258,8 @@ class _BeaconPageState extends State<BeaconPage>
           SnackBar(content: Text('Error completing beacon: ${e.toString()}')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _processingAction = false);
     }
   }
 
