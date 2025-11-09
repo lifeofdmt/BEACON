@@ -1,6 +1,7 @@
 ## BEACON  
 *cut the crap and get to it*  
 
+![Local Image](readme_assets//welcome_page.png "Local Image Title")
 ---
 
 ### Features  
