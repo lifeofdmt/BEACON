@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:location/location.dart';
 import 'package:beacon/views/widget/map_widget.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as google_maps;
+import 'package:beacon/services/beacon_monitor_service.dart';
+import 'dart:async';
 
 class BeaconPage extends StatefulWidget {
   const BeaconPage({super.key});
@@ -24,6 +26,7 @@ class _BeaconPageState extends State<BeaconPage>
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchFocused = false;
+  StreamSubscription<BeaconAcceptanceEvent>? _acceptanceSubscription;
 
   final List<String> _categories = ['All', ...BeaconCategories.all];
 
@@ -54,10 +57,147 @@ class _BeaconPageState extends State<BeaconPage>
     _searchController.addListener(() {
       setState(() {});
     });
+
+    // Start monitoring for beacon acceptances
+    _setupBeaconMonitoring();
+  }
+
+  void _setupBeaconMonitoring() {
+    final user = authService.value.currentuser;
+    if (user != null) {
+      BeaconMonitorService.instance.startMonitoring(user.uid);
+      _acceptanceSubscription = BeaconMonitorService.instance.acceptanceStream.listen(
+        _handleBeaconAcceptance,
+      );
+    }
+  }
+
+  Future<void> _handleBeaconAcceptance(BeaconAcceptanceEvent event) async {
+    if (!mounted) return;
+
+    // Show notification
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🎉 Someone accepted your beacon "${event.beaconName}"!'),
+        duration: const Duration(seconds: 3),
+        backgroundColor: Colors.green,
+        action: SnackBarAction(
+          label: 'View',
+          textColor: Colors.white,
+          onPressed: () => _navigateToAcceptedBeacon(event),
+        ),
+      ),
+    );
+
+    // Auto-navigate to the map after a brief delay
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) {
+      _navigateToAcceptedBeacon(event);
+    }
+  }
+
+  Future<void> _navigateToAcceptedBeacon(BeaconAcceptanceEvent event) async {
+    try {
+      final user = authService.value.currentuser;
+      if (user == null) return;
+
+      // Get creator's current location
+      Location location = Location();
+      LocationData locationData = await location.getLocation();
+
+      if (event.beaconLocation == null || event.accepterLocation == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location data not available')),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Navigate to map: Creator (you) as source, Accepter as destination
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: Text('Track to ${event.beaconName}'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            body: Column(
+              children: [
+                // Info banner
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).dividerColor,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Someone is coming to your beacon location!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 20.0),
+                    child: MapWidget(
+                      sourceLocation: google_maps.LatLng(
+                        locationData.latitude!,
+                        locationData.longitude!,
+                      ),
+                      destinationLocation: google_maps.LatLng(
+                        event.accepterLocation!.latitude,
+                        event.accepterLocation!.longitude,
+                      ),
+                      hasAcceptedBeacon: true,
+                      currentUserId: user.uid,
+                      sourceUserId: user.uid, // Creator is the source
+                      destinationUserId: event.accepterId, // Accepter is the destination
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
+    _acceptanceSubscription?.cancel();
+    BeaconMonitorService.instance.stopMonitoring();
     _controller.dispose();
     _searchController.dispose();
     super.dispose();
@@ -84,6 +224,8 @@ class _BeaconPageState extends State<BeaconPage>
                           "assets/images/logo_transparent_big.png",
                           height: 150,
                           width: 150,
+                          cacheWidth: 300,
+                          cacheHeight: 300,
                         ),
                       ),
                       SizedBox(height: 20),
@@ -98,7 +240,7 @@ class _BeaconPageState extends State<BeaconPage>
                               BoxShadow(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.primary.withOpacity(0.3),
+                                ).colorScheme.primary.withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -298,8 +440,9 @@ class _BeaconPageState extends State<BeaconPage>
                   final now = DateTime.now();
                   items = items.where((m) {
                     final status = (m['status'] ?? 'active').toString();
-                    if (status != 'active' && status != 'published')
+                    if (status != 'active' && status != 'published') {
                       return false;
+                    }
 
                     // Check if beacon is expired
                     final expiryIso = m['expiryDate']?.toString();
@@ -380,17 +523,17 @@ class _BeaconPageState extends State<BeaconPage>
         scale: _fadeAnimation,
         child: FloatingActionButton(
           onPressed: () async {
+            final scaffoldMessenger = ScaffoldMessenger.of(context);
             final result = await Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => CreateBeaconPage()),
             );
+            if (!mounted) return;
             if (result == true) {
               // Optionally show feedback
-              if (mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Beacon created')));
-              }
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Beacon created')),
+              );
             }
           },
           elevation: 4,
@@ -434,7 +577,7 @@ class _BeaconPageState extends State<BeaconPage>
       }
       return false;
     } catch (e) {
-      print('Error checking active beacons: $e');
+      debugPrint('Error checking active beacons: $e');
       return false;
     }
   }
@@ -479,7 +622,7 @@ class _BeaconPageState extends State<BeaconPage>
       }
       return null;
     } catch (e) {
-      print('Error getting active beacon: $e');
+      debugPrint('Error getting active beacon: $e');
       return null;
     }
   }
@@ -490,8 +633,10 @@ class _BeaconPageState extends State<BeaconPage>
       if (user == null) return;
 
       // Get current location
-      Location location = Location();
-      LocationData locationData = await location.getLocation();
+  Location location = Location();
+  LocationData locationData = await location.getLocation();
+
+  if (!mounted) return;
 
       final beaconLocation = beacon['location'] as Map?;
       if (beaconLocation != null) {
@@ -499,6 +644,7 @@ class _BeaconPageState extends State<BeaconPage>
         final destLon = beaconLocation['longitude'] as num?;
 
         if (destLat != null && destLon != null) {
+          if (!mounted) return;
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => Scaffold(
@@ -549,7 +695,7 @@ class _BeaconPageState extends State<BeaconPage>
                         color: Theme.of(context).colorScheme.surface,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 4,
                             offset: Offset(0, -2),
                           ),
@@ -631,15 +777,15 @@ class _BeaconPageState extends State<BeaconPage>
             if (now.isAfter(expiryDate)) {
               // Delete expired beacon
               await FirebaseDatabase.instance.ref('beacons/$beaconId').remove();
-              print('Deleted expired beacon: $beaconId');
+          debugPrint('Deleted expired beacon: $beaconId');
             }
           } catch (e) {
-            print('Error parsing date for beacon $beaconId: $e');
+            debugPrint('Error parsing date for beacon $beaconId: $e');
           }
         }
       }
     } catch (e) {
-      print('Error deleting expired beacons: $e');
+  debugPrint('Error deleting expired beacons: $e');
     }
   }
 
@@ -650,7 +796,7 @@ class _BeaconPageState extends State<BeaconPage>
     final createdBy = b['createdBy']?.toString();
     final acceptedBy = (b['acceptedBy'] as Map?)?.length ?? 0;
 
-    String _format(String? iso) {
+    String format(String? iso) {
       if (iso == null) return 'No expiry';
       try {
         final dt = DateTime.parse(iso);
@@ -673,7 +819,7 @@ class _BeaconPageState extends State<BeaconPage>
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -715,7 +861,7 @@ class _BeaconPageState extends State<BeaconPage>
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.primary.withOpacity(0.12),
+                          ).colorScheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -728,7 +874,7 @@ class _BeaconPageState extends State<BeaconPage>
                       ),
                       Text('•', style: TextStyle(color: Colors.grey[400])),
                       Text(
-                        'Expires: ${_format(expiryIso)}',
+                        'Expires: ${format(expiryIso)}',
                         style: TextStyle(color: Colors.grey[700], fontSize: 12),
                       ),
                     ],
@@ -790,6 +936,20 @@ class _BeaconPageState extends State<BeaconPage>
     if (user == null) return;
     final id = beacon['id']?.toString() ?? '';
     if (id.isEmpty) return;
+
+    // Prevent users from accepting their own beacons
+    final creatorId = beacon['createdBy']?.toString();
+    if (creatorId == user.uid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You cannot accept your own beacon.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
 
     try {
       // Check if user has already accepted another active beacon
@@ -905,6 +1065,9 @@ class _BeaconPageState extends State<BeaconPage>
                               destLon.toDouble(),
                             ),
                             hasAcceptedBeacon: true,
+                            currentUserId: user.uid,
+                            sourceUserId: user.uid,
+                            destinationUserId: beacon['createdBy']?.toString(),
                           ),
                         ),
                       ),
@@ -914,7 +1077,7 @@ class _BeaconPageState extends State<BeaconPage>
                           color: Theme.of(context).colorScheme.surface,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 4,
                               offset: Offset(0, -2),
                             ),
@@ -1110,7 +1273,7 @@ class _BeaconPageState extends State<BeaconPage>
     final acceptedBy = (beacon['acceptedBy'] as Map?)?.length ?? 0;
     final status = beacon['status']?.toString() ?? 'active';
 
-    String _formatDateTime(String? iso) {
+    String formatDateTime(String? iso) {
       if (iso == null) return 'No date';
       try {
         final dt = DateTime.parse(iso);
@@ -1185,7 +1348,7 @@ class _BeaconPageState extends State<BeaconPage>
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.primary.withOpacity(0.12),
+                              ).colorScheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -1220,12 +1383,12 @@ class _BeaconPageState extends State<BeaconPage>
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.surfaceVariant.withOpacity(0.5),
+                      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: Theme.of(
                           context,
-                        ).colorScheme.outline.withOpacity(0.2),
+                        ).colorScheme.outline.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Text(
@@ -1242,7 +1405,7 @@ class _BeaconPageState extends State<BeaconPage>
                 _DetailRow(
                   icon: Icons.schedule,
                   label: 'Expires',
-                  value: _formatDateTime(expiryIso),
+                  value: formatDateTime(expiryIso),
                 ),
                 SizedBox(height: 12),
                 _DetailRow(
@@ -1259,17 +1422,36 @@ class _BeaconPageState extends State<BeaconPage>
                 SizedBox(height: 16),
                 _AuthorLine(uid: createdBy),
                 SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _acceptBeacon(beacon);
-                    },
-                    icon: Icon(Icons.check_circle_outline),
-                    label: Text('Accept Beacon'),
+                FutureBuilder<bool>(
+                  future: _checkUserHasActiveBeacon(
+                    authService.value.currentuser?.uid ?? '',
                   ),
+                  builder: (context, snapshot) {
+                    final hasActiveBeacon = snapshot.data ?? false;
+                    final currentUserId = authService.value.currentuser?.uid;
+                    final isOwnBeacon = createdBy == currentUserId;
+
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton.icon(
+                        onPressed: (hasActiveBeacon || isOwnBeacon)
+                            ? null
+                            : () {
+                                Navigator.pop(context);
+                                _acceptBeacon(beacon);
+                              },
+                        icon: Icon(Icons.check_circle_outline),
+                        label: Text(
+                          isOwnBeacon
+                              ? 'Your Beacon'
+                              : hasActiveBeacon
+                                  ? 'Already Accepted Another'
+                                  : 'Accept Beacon',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -1288,7 +1470,7 @@ class _AuthorLine extends StatelessWidget {
     if (uid == null || uid!.isEmpty) return 'Author: Unknown';
     final snap = await DatabaseService().read(path: 'users/$uid');
     final name = (snap?.value as Map?)?['displayName']?.toString();
-    return 'Author: ' + (name ?? uid!);
+    return 'Author: ${name ?? uid!}';
   }
 
   @override
@@ -1453,9 +1635,9 @@ class _FavoriteIndicatorState extends State<_FavoriteIndicator> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.15),
+        color: Colors.amber.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withOpacity(0.6)),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.6)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,

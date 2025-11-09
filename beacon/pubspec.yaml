@@ -49,6 +49,7 @@ dependencies:
   firebase_database: ^12.0.4
   timeago: ^3.7.1
   google_generative_ai: ^0.4.6
+  intl: ^0.20.2
 
 
 dev_dependencies:
@@ -118,18 +119,18 @@ flutter:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo.png"
+  image_path: "assets/images/logo_transparent_app.png"
   min_sdk_android: 21
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/logo.png"
+  adaptive_icon_foreground: "assets/images/logo_transparent_app.png"
   remove_alpha_ios: true
   web:
     generate: true
-    image_path: "assets/images/logo.png"
+    image_path: "assets/images/logo_transparent_app.png"
   windows:
     generate: true
-    image_path: "assets/images/logo.png"
+    image_path: "assets/images/logo_transparent_app.png"
     icon_size: 48
   macos:
     generate: true
-    image_path: "assets/images/logo.png"
+    image_path: "assets/images/logo_transparent_app.png"

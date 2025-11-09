@@ -43,7 +43,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   // Gemini-generated wolf skin demo
   Map<String, dynamic>? _generatedWolfSkin;
   bool _isGeneratingWolf = false;
-  List<Map<String, dynamic>> _generatedWolves = [];
+  final List<Map<String, dynamic>> _generatedWolves = [];
 
   Future<void> _loadUserData() async {
     setState(() {
@@ -138,10 +138,12 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   void logout() async {
     try {
       await authService.value.signOut();
+      if (!mounted) return;
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) {
         return WelcomePage();
       },), (route) => false);
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() { _settingsMessage = e.message ?? "Logout error"; });
     }
   }
@@ -159,8 +161,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).colorScheme.primary.withOpacity(0.7),
-                      Theme.of(context).colorScheme.secondary.withOpacity(0.7),
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                      Theme.of(context).colorScheme.secondary.withValues(alpha: 0.7),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -254,7 +256,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                             Shadow(
                               offset: Offset(0, 2),
                               blurRadius: 4,
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                             ),
                           ],
                         ),
@@ -302,7 +304,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                         Container(
                           padding: EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(
@@ -471,8 +473,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                             Colors.deepPurple.shade900,
                                           ])
                                         : LinearGradient(colors: [
-                                            Colors.purple.shade300.withOpacity(0.3),
-                                            Colors.deepPurple.shade300.withOpacity(0.3),
+                                            Colors.purple.shade300.withValues(alpha: 0.3),
+                                            Colors.deepPurple.shade300.withValues(alpha: 0.3),
                                           ]),
                                     border: Border.all(
                                       color: isSelected
@@ -483,7 +485,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                     boxShadow: isSelected
                                         ? [
                                             BoxShadow(
-                                              color: Colors.amber.withOpacity(0.4),
+                                              color: Colors.amber.withValues(alpha: 0.4),
                                               blurRadius: 10,
                                               offset: Offset(0, 4),
                                             )
@@ -543,8 +545,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                     borderRadius: BorderRadius.circular(16),
                                     gradient: isSelected
                                         ? LinearGradient(colors: [
-                                            Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                                            Theme.of(context).colorScheme.secondary.withOpacity(0.2),
+                                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                                            Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
                                           ])
                                         : null,
                                     border: Border.all(
@@ -556,7 +558,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                     boxShadow: isSelected
                                         ? [
                                             BoxShadow(
-                                              color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
                                               blurRadius: 10,
                                               offset: Offset(0, 4),
                                             )
@@ -570,6 +572,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                       width: 90,
                                       height: 90,
                                       fit: BoxFit.cover,
+                                      cacheWidth: 180, // Cache at 2x resolution for retina displays
+                                      cacheHeight: 180,
                                     ),
                                   ),
                                 ),

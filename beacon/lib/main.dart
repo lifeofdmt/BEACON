@@ -11,10 +11,14 @@ import 'firebase_options.dart';
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Configure image cache to prevent memory issues
+  PaintingBinding.instance.imageCache.maximumSize = 100; // Limit cached images
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024; // 50MB max
+  
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-  options: DefaultFirebaseOptions.currentPlatform,
+    options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(const MyApp());
 }

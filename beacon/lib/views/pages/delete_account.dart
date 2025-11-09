@@ -90,7 +90,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
                 Card(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                    side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
                   ),
                   elevation: 4,
                   child: Padding(

@@ -48,6 +48,10 @@ class _MapWidgetState extends State<MapWidget> {
   google_maps.BitmapDescriptor currentIcon =
       google_maps.BitmapDescriptor.defaultMarker;
 
+  // Cache for generated marker bitmaps to avoid recomputing the same images
+  final Map<String, google_maps.BitmapDescriptor> _markerCache = {};
+  String? _lastRouteKey;
+
   late Future<LocationData> locationFuture;
   bool _iconsLoaded = false;
 
@@ -85,7 +89,7 @@ class _MapWidgetState extends State<MapWidget> {
         return data['character']?.toString();
       }
     } catch (e) {
-      print('Error fetching user character: $e');
+      debugPrint('Error fetching user character: $e');
     }
     return null;
   }
@@ -94,6 +98,10 @@ class _MapWidgetState extends State<MapWidget> {
     String assetPath,
   ) async {
     try {
+      // Return cached descriptor if available
+      final cached = _markerCache[assetPath];
+      if (cached != null) return cached;
+
       // Load the asset image
       final ByteData data = await rootBundle.load(assetPath);
       final Uint8List bytes = data.buffer.asUint8List();
@@ -147,9 +155,11 @@ class _MapWidgetState extends State<MapWidget> {
       );
       final Uint8List pngBytes = byteData!.buffer.asUint8List();
 
-      return google_maps.BitmapDescriptor.bytes(pngBytes);
+      final descriptor = google_maps.BitmapDescriptor.bytes(pngBytes);
+      _markerCache[assetPath] = descriptor;
+      return descriptor;
     } catch (e) {
-      print('Error creating circular marker: $e');
+      debugPrint('Error creating circular marker: $e');
       // Fallback to default marker
       return google_maps.BitmapDescriptor.defaultMarker;
     }
@@ -203,8 +213,17 @@ class _MapWidgetState extends State<MapWidget> {
       return;
     }
 
+    // Avoid recomputing the same route repeatedly
+    final key =
+        '${source!.latitude},${source!.longitude}->${destination!.latitude},${destination!.longitude}';
+    if (_lastRouteKey == key && polylineCoordinates.isNotEmpty) {
+      return;
+    }
+
     PolylinePoints polylinePoints = PolylinePoints(apiKey: GOOGLE_MAPS_API_KEY);
 
+    // Using PolylineRequest - keeping as-is since RoutesApiRequest has different signature
+    // and requires migration to newer routing API
     PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
       request: PolylineRequest(
         origin: PointLatLng(source!.latitude, source!.longitude),
@@ -217,6 +236,7 @@ class _MapWidgetState extends State<MapWidget> {
       polylineCoordinates = result.points
           .map((point) => google_maps.LatLng(point.latitude, point.longitude))
           .toList();
+      _lastRouteKey = key;
       setState(() {});
     }
   }
@@ -231,10 +251,21 @@ class _MapWidgetState extends State<MapWidget> {
     }
 
     locationFuture = fetchInitialLocation();
-    setCustomMarkerIcon().then((_) {
+    // Parallelize initial setup where possible
+    Future.wait([
+      setCustomMarkerIcon(),
+      locationFuture,
+    ]).then((_) {
       getCurrentLocationStream();
       getPolyPoints();
     });
+  }
+
+  @override
+  void dispose() {
+    // Clear marker cache to free memory when widget is disposed
+    _markerCache.clear();
+    super.dispose();
   }
 
   @override
@@ -253,25 +284,30 @@ class _MapWidgetState extends State<MapWidget> {
                   child: Lottie.asset(
                     "assets/lotties/wolf_walk.json",
                     height: 180,
+                    repeat: true,
+                    frameRate: FrameRate(30), // Limit frame rate to reduce CPU load
                   ),
                 ),
-                SizedBox(height: 20),
-                Container(
-                  width: 320,
-                  height: 320,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Center(
-                    child: Lottie.asset(
-                      "assets/lotties/splash.json",
-                      height: 120,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
-                Text(
+                const SizedBox(height: 20),
+                 Container(
+                   width: 80,
+                   height: 80,
+                   decoration: BoxDecoration(
+                     color: Theme.of(context).colorScheme.primaryContainer,
+                     shape: BoxShape.circle,
+                   ),
+                   child: Padding(
+                     padding: const EdgeInsets.all(16.0),
+                     child: CircularProgressIndicator(
+                       strokeWidth: 4,
+                       valueColor: AlwaysStoppedAnimation<Color>(
+                         Theme.of(context).colorScheme.primary,
+                       ),
+                     ),
+                   ),
+                 ),
+                 const SizedBox(height: 20),
+                const Text(
                   'Loading map...',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),

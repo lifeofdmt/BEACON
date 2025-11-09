@@ -52,9 +52,9 @@ class _WelcomePageState extends State<WelcomePage>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.05),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
               Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.secondary.withOpacity(0.05),
+              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.05),
             ],
           ),
         ),
@@ -120,7 +120,7 @@ class _WelcomePageState extends State<WelcomePage>
                                   BoxShadow(
                                     color: Theme.of(
                                       context,
-                                    ).colorScheme.primary.withOpacity(0.3),
+                                    ).colorScheme.primary.withValues(alpha: 0.3),
                                     blurRadius: 20,
                                     offset: const Offset(0, 10),
                                   ),

@@ -136,11 +136,13 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   void onLoginPressed() async{
     try {
       await authService.value.signIn(email: controllerEmail.text, password: controllerPassword.text);
+      if (!mounted) return;
       selectedValueNotifier.value = 0;
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) {
         return WidgetTree();
       },), (route) => false);
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() {
           errorMessage = e.message ?? "Your email/password is incorrect";
       });

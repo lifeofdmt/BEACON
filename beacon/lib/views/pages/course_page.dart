@@ -30,9 +30,9 @@ class _CoursePageState extends State<CoursePage> {
       var jsonResponse =
           convert.jsonDecode(response.body) as Map<String, dynamic>;
       var itemCount = jsonResponse['accessibility'];
-      print('Number of books about http: $itemCount.');
+      debugPrint('Number of books about http: $itemCount.');
     } else {
-      print('Request failed with status: ${response.statusCode}.');
+      debugPrint('Request failed with status: ${response.statusCode}.');
     }
 }
   @override
