@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import 'package:location/location.dart';
 import 'package:beacon/views/widget/map_widget.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as google_maps;
-import 'package:beacon/services/eleven_labs_service.dart';
 
 class BeaconPage extends StatefulWidget {
   const BeaconPage({super.key});
@@ -229,35 +228,6 @@ class _BeaconPageState extends State<BeaconPage>
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              tooltip: 'Listen',
-                              icon: const Icon(Icons.volume_up_outlined),
-                              onPressed: () {
-                                final name = (activeBeacon['name'] ?? 'Active beacon').toString();
-                                final description = (activeBeacon['description'] ?? '').toString();
-                                final cat = (activeBeacon['category'] ?? 'Uncategorized').toString();
-                                final expiryIso = activeBeacon['expiryDate']?.toString();
-                                final acceptedBy = (activeBeacon['acceptedBy'] as Map?)?.length ?? 0;
-                                String _fmt(String? iso) {
-                                  if (iso == null) return 'no expiry';
-                                  try {
-                                    final dt = DateTime.parse(iso);
-                                    return DateFormat.yMMMd().add_jm().format(dt);
-                                  } catch (_) {
-                                    return iso;
-                                  }
-                                }
-                                final buffer = StringBuffer()
-                                  ..writeln('Active beacon: $name.')
-                                  ..writeln('Category: $cat.')
-                                  ..writeln('Accepted by $acceptedBy user${acceptedBy != 1 ? 's' : ''}.')
-                                  ..writeln('Expires ${_fmt(expiryIso)}.');
-                                if (description.isNotEmpty) {
-                                  buffer.writeln('Description: $description');
-                                }
-                                ElevenLabsService.instance.speakText(buffer.toString());
-                              },
-                            ),
                             TextButton(
                               onPressed: () =>
                                   _navigateToActiveBeacon(activeBeacon),
@@ -794,36 +764,6 @@ class _BeaconPageState extends State<BeaconPage>
                       onPressed: () => _showBeaconDetails(b),
                       child: const Text('Details'),
                     ),
-                    IconButton(
-                      tooltip: 'Listen',
-                      icon: const Icon(Icons.volume_up_outlined),
-                      onPressed: () {
-                        final name = b['name']?.toString() ?? 'Untitled beacon';
-                        final description = b['description']?.toString() ?? '';
-                        final category = b['category']?.toString() ?? 'Uncategorized';
-                        final expiryIso = b['expiryDate']?.toString();
-                        String _format(String? iso) {
-                          if (iso == null) return 'no expiry';
-                          try {
-                            final dt = DateTime.parse(iso);
-                            return DateFormat.yMMMd().add_jm().format(dt);
-                          } catch (_) {
-                            return iso;
-                          }
-                        }
-                        final buffer = StringBuffer()
-                          ..writeln('Beacon: $name.')
-                          ..writeln('Category: $category.')
-                          ..writeln('Expires ${_format(expiryIso)}.');
-                        if (acceptedBy > 0) {
-                          buffer.writeln('Accepted by $acceptedBy user${acceptedBy > 1 ? 's' : ''}.');
-                        }
-                        if (description.isNotEmpty) {
-                          buffer.writeln('Description: $description');
-                        }
-                        ElevenLabsService.instance.speakText(buffer.toString());
-                      },
-                    ),
                   ],
                 );
               },
@@ -1188,23 +1128,6 @@ class _BeaconPageState extends State<BeaconPage>
                         ],
                       ),
                     ),
-                    // Listen button for accessibility (Text-to-Speech)
-                    IconButton(
-                      tooltip: 'Listen',
-                      icon: Icon(Icons.volume_up_outlined),
-                      onPressed: () {
-                        final buffer = StringBuffer()
-                          ..writeln('Beacon: $name.')
-                          ..writeln('Category: $category.')
-                          ..writeln('Status: $status.')
-                          ..writeln('Accepted by $acceptedBy user${acceptedBy != 1 ? 's' : ''}.')
-                          ..writeln('Expires ${_formatDateTime(expiryIso)}.');
-                        if (description.isNotEmpty) {
-                          buffer.writeln('Description: $description');
-                        }
-                        ElevenLabsService.instance.speakText(buffer.toString());
-                      },
-                    ),
                   ],
                 ),
                 if (description.isNotEmpty) ...[
@@ -1273,27 +1196,6 @@ class _BeaconPageState extends State<BeaconPage>
                     },
                     icon: Icon(Icons.check_circle_outline),
                     label: Text('Accept Beacon'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      final buffer = StringBuffer()
-                        ..writeln('Beacon: $name.')
-                        ..writeln('Category: $category.')
-                        ..writeln('Status: $status.')
-                        ..writeln('Accepted by $acceptedBy user${acceptedBy != 1 ? 's' : ''}.')
-                        ..writeln('Expires ${_formatDateTime(expiryIso)}.');
-                      if (description.isNotEmpty) {
-                        buffer.writeln('Description: $description');
-                      }
-                      ElevenLabsService.instance.speakText(buffer.toString());
-                    },
-                    icon: const Icon(Icons.play_circle_outline),
-                    label: const Text('Listen'),
                   ),
                 ),
               ],

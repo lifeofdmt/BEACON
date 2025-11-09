@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:beacon/data/quest_model.dart';
-import 'package:beacon/services/eleven_labs_service.dart';
 
 class QuestPage extends StatefulWidget {
   const QuestPage({super.key});
@@ -414,26 +413,6 @@ class _QuestPageState extends State<QuestPage>
                               ),
                             ),
                           ),
-                          IconButton(
-                            tooltip: 'Listen',
-                            icon: const Icon(Icons.volume_up_outlined, size: 20),
-                            onPressed: () {
-                              final buffer = StringBuffer()
-                                ..writeln('Quest: ${quest.title}.')
-                                ..writeln('Category: ${quest.category}.')
-                                ..writeln('Difficulty: ${quest.difficulty.displayName}.')
-                                ..writeln('Reward: ${quest.xpReward} XP.');
-                              if (quest.description.isNotEmpty) {
-                                buffer.writeln('Description: ${quest.description}');
-                              }
-                              if (!quest.isCompleted) {
-                                buffer.writeln('Progress: ${quest.currentProgress} of ${quest.targetProgress}.');
-                              } else {
-                                buffer.writeln('This quest is completed.');
-                              }
-                              ElevenLabsService.instance.speakText(buffer.toString());
-                            },
-                          ),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -598,25 +577,6 @@ class _QuestPageState extends State<QuestPage>
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: IconButton(
-                    tooltip: 'Listen',
-                    icon: const Icon(Icons.volume_up_outlined),
-                    onPressed: () {
-                      final buffer = StringBuffer()
-                        ..writeln('Quest: ${quest.title}.')
-                        ..writeln('Category: ${quest.category}.')
-                        ..writeln('Difficulty: ${quest.difficulty.displayName}.')
-                        ..writeln('Reward: ${quest.xpReward} XP.');
-                      if (quest.description.isNotEmpty) {
-                        buffer.writeln('Description: ${quest.description}');
-                      }
-                      buffer.writeln('Progress: ${quest.currentProgress} of ${quest.targetProgress}.');
-                      ElevenLabsService.instance.speakText(buffer.toString());
-                    },
                   ),
                 ),
                 const SizedBox(height: 8),
