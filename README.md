@@ -1,7 +1,7 @@
 ## BEACON  
 *cut the crap and get to it*  
 
-![Local Image](readme_assets//welcome_page.png "Local Image Title")
+<img src="readme_assets//welcome_page.png" alt="Welcome Page" width="50%" height="50%">
 ---
 # 🚀 BEACON: Cut the Crap. Connect Instantly.
 
