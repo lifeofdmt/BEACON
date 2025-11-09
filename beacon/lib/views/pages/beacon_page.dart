@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:location/location.dart';
 import 'package:beacon/views/widget/map_widget.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as google_maps;
+import 'package:beacon/services/eleven_labs_service.dart';
 
 class BeaconPage extends StatefulWidget {
   const BeaconPage({super.key});
@@ -16,14 +17,15 @@ class BeaconPage extends StatefulWidget {
   State<BeaconPage> createState() => _BeaconPageState();
 }
 
-class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateMixin {
+class _BeaconPageState extends State<BeaconPage>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchFocused = false;
-  
+
   final List<String> _categories = ['All', ...BeaconCategories.all];
 
   @override
@@ -42,15 +44,17 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     _slideAnimation = Tween<Offset>(
       begin: Offset(0, -0.5),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     _controller.forward();
-    
+
     // Delete expired beacons on page load
     _deleteExpiredBeacons();
+
+    // Add listener to search controller to trigger rebuild on text change
+    _searchController.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -93,7 +97,9 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                           boxShadow: [
                             if (_isSearchFocused)
                               BoxShadow(
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.3),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -102,10 +108,20 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                         child: TextField(
                           controller: _searchController,
                           onTap: () => setState(() => _isSearchFocused = true),
-                          onTapOutside: (_) => setState(() => _isSearchFocused = false),
+                          onTapOutside: (_) =>
+                              setState(() => _isSearchFocused = false),
                           decoration: InputDecoration(
                             hintText: 'Search Beacons...',
                             prefixIcon: Icon(Icons.search),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {});
+                                    },
+                                  )
+                                : null,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(25),
                               borderSide: BorderSide.none,
@@ -140,10 +156,14 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                                   elevation: isSelected ? 4 : 0,
                                   padding: EdgeInsets.symmetric(horizontal: 12),
                                   showCheckmark: false,
-                                  selectedColor: Theme.of(context).colorScheme.primary,
+                                  selectedColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
                                   labelStyle: TextStyle(
                                     color: isSelected ? Colors.white : null,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ),
@@ -189,14 +209,18 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                                 'Active Beacon',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                                 ),
                               ),
                               Text(
                                 activeBeacon['name'] ?? 'Untitled',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                                 ),
                               ),
                             ],
@@ -205,8 +229,38 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            IconButton(
+                              tooltip: 'Listen',
+                              icon: const Icon(Icons.volume_up_outlined),
+                              onPressed: () {
+                                final name = (activeBeacon['name'] ?? 'Active beacon').toString();
+                                final description = (activeBeacon['description'] ?? '').toString();
+                                final cat = (activeBeacon['category'] ?? 'Uncategorized').toString();
+                                final expiryIso = activeBeacon['expiryDate']?.toString();
+                                final acceptedBy = (activeBeacon['acceptedBy'] as Map?)?.length ?? 0;
+                                String _fmt(String? iso) {
+                                  if (iso == null) return 'no expiry';
+                                  try {
+                                    final dt = DateTime.parse(iso);
+                                    return DateFormat.yMMMd().add_jm().format(dt);
+                                  } catch (_) {
+                                    return iso;
+                                  }
+                                }
+                                final buffer = StringBuffer()
+                                  ..writeln('Active beacon: $name.')
+                                  ..writeln('Category: $cat.')
+                                  ..writeln('Accepted by $acceptedBy user${acceptedBy != 1 ? 's' : ''}.')
+                                  ..writeln('Expires ${_fmt(expiryIso)}.');
+                                if (description.isNotEmpty) {
+                                  buffer.writeln('Description: $description');
+                                }
+                                ElevenLabsService.instance.speakText(buffer.toString());
+                              },
+                            ),
                             TextButton(
-                              onPressed: () => _navigateToActiveBeacon(activeBeacon),
+                              onPressed: () =>
+                                  _navigateToActiveBeacon(activeBeacon),
                               child: Text('View'),
                             ),
                             SizedBox(width: 8),
@@ -239,7 +293,9 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                 stream: FirebaseDatabase.instance.ref('beacons').onValue,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator.adaptive());
+                    return const Center(
+                      child: CircularProgressIndicator.adaptive(),
+                    );
                   }
                   final data = snapshot.data?.snapshot.value;
                   if (data == null) {
@@ -249,12 +305,18 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                         const SizedBox(height: 80),
                         Icon(Icons.wifi_off, size: 64, color: Colors.grey),
                         const SizedBox(height: 20),
-                        Center(child: Text('No beacons found', style: TextStyle(color: Colors.grey))),
+                        Center(
+                          child: Text(
+                            'No beacons found',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
                       ],
                     );
                   }
 
-                  final Map<dynamic, dynamic> map = data as Map<dynamic, dynamic>;
+                  final Map<dynamic, dynamic> map =
+                      data as Map<dynamic, dynamic>;
                   var items = map.entries.map((e) {
                     final id = e.key.toString();
                     final m = Map<String, dynamic>.from(e.value as Map);
@@ -266,8 +328,9 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                   final now = DateTime.now();
                   items = items.where((m) {
                     final status = (m['status'] ?? 'active').toString();
-                    if (status != 'active' && status != 'published') return false;
-                    
+                    if (status != 'active' && status != 'published')
+                      return false;
+
                     // Check if beacon is expired
                     final expiryIso = m['expiryDate']?.toString();
                     if (expiryIso != null) {
@@ -277,25 +340,41 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                           // Delete expired beacon asynchronously
                           final beaconId = m['id']?.toString();
                           if (beaconId != null) {
-                            FirebaseDatabase.instance.ref('beacons/$beaconId').remove();
+                            FirebaseDatabase.instance
+                                .ref('beacons/$beaconId')
+                                .remove();
                           }
                           return false; // Don't show expired beacon
                         }
                       } catch (_) {}
                     }
-                    
+
                     final name = (m['name'] ?? '').toString().toLowerCase();
-                    final q = _searchController.text.toLowerCase();
+                    final description = (m['description'] ?? '')
+                        .toString()
+                        .toLowerCase();
                     final cat = (m['category'] ?? '').toString();
-                    final matchesSearch = q.isEmpty || name.contains(q);
-                    final matchesCat = _selectedCategory == 'All' || _selectedCategory == cat;
+                    final q = _searchController.text.toLowerCase();
+
+                    // Search matches name, description, or category
+                    final matchesSearch =
+                        q.isEmpty ||
+                        name.contains(q) ||
+                        description.contains(q) ||
+                        cat.toLowerCase().contains(q);
+                    final matchesCat =
+                        _selectedCategory == 'All' || _selectedCategory == cat;
                     return matchesSearch && matchesCat;
                   }).toList();
 
                   // sort newest first
                   items.sort((a, b) {
-                    final aT = DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
-                    final bT = DateTime.tryParse(b['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+                    final aT =
+                        DateTime.tryParse(a['createdAt']?.toString() ?? '') ??
+                        DateTime.fromMillisecondsSinceEpoch(0);
+                    final bT =
+                        DateTime.tryParse(b['createdAt']?.toString() ?? '') ??
+                        DateTime.fromMillisecondsSinceEpoch(0);
                     return bT.compareTo(aT);
                   });
 
@@ -306,7 +385,12 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                         const SizedBox(height: 80),
                         Icon(Icons.search_off, size: 64, color: Colors.grey),
                         const SizedBox(height: 20),
-                        Center(child: Text('No matching beacons', style: TextStyle(color: Colors.grey))),
+                        Center(
+                          child: Text(
+                            'No matching beacons',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
                       ],
                     );
                   }
@@ -333,9 +417,9 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
             if (result == true) {
               // Optionally show feedback
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Beacon created')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Beacon created')));
               }
             }
           },
@@ -350,20 +434,21 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     try {
       final snapshot = await DatabaseService().read(path: 'beacons');
       if (snapshot?.value == null) return false;
-      
-      final Map<dynamic, dynamic> beacons = snapshot!.value as Map<dynamic, dynamic>;
-      
+
+      final Map<dynamic, dynamic> beacons =
+          snapshot!.value as Map<dynamic, dynamic>;
+
       for (var entry in beacons.entries) {
         final beacon = Map<String, dynamic>.from(entry.value as Map);
         final acceptedBy = beacon['acceptedBy'] as Map?;
-        
+
         if (acceptedBy != null && acceptedBy.containsKey(userId)) {
           final userAcceptance = acceptedBy[userId];
           if (userAcceptance is Map && userAcceptance['accepted'] == true) {
             // Check if beacon is completed
             final isCompleted = userAcceptance['completed'] == true;
             if (isCompleted) continue; // Skip completed beacons
-            
+
             // Check if beacon is still active (not expired)
             final expiryIso = beacon['expiryDate']?.toString();
             if (expiryIso != null) {
@@ -388,24 +473,25 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     try {
       final user = authService.value.currentuser;
       if (user == null) return null;
-      
+
       final snapshot = await DatabaseService().read(path: 'beacons');
       if (snapshot?.value == null) return null;
-      
-      final Map<dynamic, dynamic> beacons = snapshot!.value as Map<dynamic, dynamic>;
-      
+
+      final Map<dynamic, dynamic> beacons =
+          snapshot!.value as Map<dynamic, dynamic>;
+
       for (var entry in beacons.entries) {
         final beaconId = entry.key.toString();
         final beacon = Map<String, dynamic>.from(entry.value as Map);
         final acceptedBy = beacon['acceptedBy'] as Map?;
-        
+
         if (acceptedBy != null && acceptedBy.containsKey(user.uid)) {
           final userAcceptance = acceptedBy[user.uid];
           if (userAcceptance is Map && userAcceptance['accepted'] == true) {
             // Check if beacon is completed
             final isCompleted = userAcceptance['completed'] == true;
             if (isCompleted) continue; // Skip completed beacons
-            
+
             // Check if beacon is still active (not expired)
             final expiryIso = beacon['expiryDate']?.toString();
             if (expiryIso != null) {
@@ -432,16 +518,16 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     try {
       final user = authService.value.currentuser;
       if (user == null) return;
-      
+
       // Get current location
       Location location = Location();
       LocationData locationData = await location.getLocation();
-      
+
       final beaconLocation = beacon['location'] as Map?;
       if (beaconLocation != null) {
         final destLat = beaconLocation['latitude'] as num?;
         final destLon = beaconLocation['longitude'] as num?;
-        
+
         if (destLat != null && destLon != null) {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -458,7 +544,11 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                     IconButton(
                       icon: Icon(Icons.cancel_outlined),
                       tooltip: 'Cancel Beacon',
-                      onPressed: () => _showCancelConfirmation(context, beacon['id'], user.uid),
+                      onPressed: () => _showCancelConfirmation(
+                        context,
+                        beacon['id'],
+                        user.uid,
+                      ),
                     ),
                   ],
                 ),
@@ -477,6 +567,9 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                             destLon.toDouble(),
                           ),
                           hasAcceptedBeacon: true,
+                          currentUserId: user.uid,
+                          sourceUserId: user.uid,
+                          destinationUserId: beacon['createdBy']?.toString(),
                         ),
                       ),
                     ),
@@ -496,7 +589,11 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: () => _completeBeacon(context, beacon['id'], user.uid),
+                              onPressed: () => _completeBeacon(
+                                context,
+                                beacon['id'],
+                                user.uid,
+                              ),
                               icon: Icon(Icons.check_circle_outline),
                               label: Text('Complete'),
                               style: ElevatedButton.styleFrom(
@@ -509,7 +606,11 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                           SizedBox(width: 12),
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () => _showCancelConfirmation(context, beacon['id'], user.uid),
+                              onPressed: () => _showCancelConfirmation(
+                                context,
+                                beacon['id'],
+                                user.uid,
+                              ),
                               icon: Icon(Icons.cancel_outlined),
                               label: Text('Cancel'),
                               style: OutlinedButton.styleFrom(
@@ -532,7 +633,9 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error navigating to beacon: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error navigating to beacon: ${e.toString()}'),
+          ),
         );
       }
     }
@@ -542,15 +645,16 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     try {
       final snapshot = await DatabaseService().read(path: 'beacons');
       if (snapshot?.value == null) return;
-      
-      final Map<dynamic, dynamic> beacons = snapshot!.value as Map<dynamic, dynamic>;
+
+      final Map<dynamic, dynamic> beacons =
+          snapshot!.value as Map<dynamic, dynamic>;
       final now = DateTime.now();
-      
+
       for (var entry in beacons.entries) {
         final beaconId = entry.key.toString();
         final beacon = Map<String, dynamic>.from(entry.value as Map);
         final expiryIso = beacon['expiryDate']?.toString();
-        
+
         if (expiryIso != null) {
           try {
             final expiryDate = DateTime.parse(expiryIso);
@@ -602,55 +706,87 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                 color: Theme.of(context).colorScheme.surfaceVariant,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.wifi_rounded, color: Theme.of(context).colorScheme.primary),
+              child: Icon(
+                Icons.wifi_rounded,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
                     spacing: 8,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(category, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12)),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                       Text('•', style: TextStyle(color: Colors.grey[400])),
-                      Text('Expires: ${_format(expiryIso)}', style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                      Text(
+                        'Expires: ${_format(expiryIso)}',
+                        style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   _AuthorLine(uid: createdBy),
                   if (acceptedBy > 0) ...[
                     const SizedBox(height: 6),
-                    Text('Accepted by $acceptedBy user${acceptedBy > 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.green[700])),
+                    Text(
+                      'Accepted by $acceptedBy user${acceptedBy > 1 ? 's' : ''}',
+                      style: TextStyle(fontSize: 12, color: Colors.green[700]),
+                    ),
                   ],
                 ],
               ),
             ),
             const SizedBox(width: 8),
             FutureBuilder<bool>(
-              future: _checkUserHasActiveBeacon(authService.value.currentuser?.uid ?? ''),
+              future: _checkUserHasActiveBeacon(
+                authService.value.currentuser?.uid ?? '',
+              ),
               builder: (context, snapshot) {
                 final hasActiveBeacon = snapshot.data ?? false;
                 final currentUserId = authService.value.currentuser?.uid;
                 final isOwnBeacon = createdBy == currentUserId;
-                
+
                 return Column(
                   children: [
                     ElevatedButton(
-                      onPressed: (hasActiveBeacon || isOwnBeacon) ? null : () => _acceptBeacon(b),
+                      onPressed: (hasActiveBeacon || isOwnBeacon)
+                          ? null
+                          : () => _acceptBeacon(b),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(100, 40),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: Text(isOwnBeacon ? 'Your Beacon' : 'Accept'),
                     ),
@@ -658,10 +794,40 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                       onPressed: () => _showBeaconDetails(b),
                       child: const Text('Details'),
                     ),
+                    IconButton(
+                      tooltip: 'Listen',
+                      icon: const Icon(Icons.volume_up_outlined),
+                      onPressed: () {
+                        final name = b['name']?.toString() ?? 'Untitled beacon';
+                        final description = b['description']?.toString() ?? '';
+                        final category = b['category']?.toString() ?? 'Uncategorized';
+                        final expiryIso = b['expiryDate']?.toString();
+                        String _format(String? iso) {
+                          if (iso == null) return 'no expiry';
+                          try {
+                            final dt = DateTime.parse(iso);
+                            return DateFormat.yMMMd().add_jm().format(dt);
+                          } catch (_) {
+                            return iso;
+                          }
+                        }
+                        final buffer = StringBuffer()
+                          ..writeln('Beacon: $name.')
+                          ..writeln('Category: $category.')
+                          ..writeln('Expires ${_format(expiryIso)}.');
+                        if (acceptedBy > 0) {
+                          buffer.writeln('Accepted by $acceptedBy user${acceptedBy > 1 ? 's' : ''}.');
+                        }
+                        if (description.isNotEmpty) {
+                          buffer.writeln('Description: $description');
+                        }
+                        ElevenLabsService.instance.speakText(buffer.toString());
+                      },
+                    ),
                   ],
                 );
               },
-            )
+            ),
           ],
         ),
       ),
@@ -681,7 +847,9 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('You can only accept one beacon at a time. Complete or cancel your current beacon first.'),
+              content: Text(
+                'You can only accept one beacon at a time. Complete or cancel your current beacon first.',
+              ),
               duration: Duration(seconds: 4),
             ),
           );
@@ -709,8 +877,10 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Beacon accepted')));
-        
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Beacon accepted')));
+
         // Navigate to map with route information
         // Source: accepter's current location
         // Destination: beacon creator's location
@@ -718,7 +888,7 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
         if (beaconLocation != null) {
           final destLat = beaconLocation['latitude'] as num?;
           final destLon = beaconLocation['longitude'] as num?;
-          
+
           if (destLat != null && destLon != null) {
             // Navigate to home page which shows the map
             // The map will show the route from accepter to creator
@@ -737,7 +907,8 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                       IconButton(
                         icon: Icon(Icons.cancel_outlined),
                         tooltip: 'Cancel Beacon',
-                        onPressed: () => _showCancelConfirmation(context, id, user.uid),
+                        onPressed: () =>
+                            _showCancelConfirmation(context, id, user.uid),
                       ),
                     ],
                   ),
@@ -775,7 +946,8 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () => _completeBeacon(context, id, user.uid),
+                                onPressed: () =>
+                                    _completeBeacon(context, id, user.uid),
                                 icon: Icon(Icons.check_circle_outline),
                                 label: Text('Complete'),
                                 style: ElevatedButton.styleFrom(
@@ -788,7 +960,11 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                             SizedBox(width: 12),
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: () => _showCancelConfirmation(context, id, user.uid),
+                                onPressed: () => _showCancelConfirmation(
+                                  context,
+                                  id,
+                                  user.uid,
+                                ),
                                 icon: Icon(Icons.cancel_outlined),
                                 label: Text('Cancel'),
                                 style: OutlinedButton.styleFrom(
@@ -818,11 +994,17 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _cancelBeacon(BuildContext context, String beaconId, String userId) async {
+  Future<void> _cancelBeacon(
+    BuildContext context,
+    String beaconId,
+    String userId,
+  ) async {
     try {
       // Remove the user's acceptance from the beacon
-      await FirebaseDatabase.instance.ref('beacons/$beaconId/acceptedBy/$userId').remove();
-      
+      await FirebaseDatabase.instance
+          .ref('beacons/$beaconId/acceptedBy/$userId')
+          .remove();
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Beacon cancelled successfully')),
@@ -843,7 +1025,11 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _completeBeacon(BuildContext context, String beaconId, String userId) async {
+  Future<void> _completeBeacon(
+    BuildContext context,
+    String beaconId,
+    String userId,
+  ) async {
     try {
       // Mark the beacon as completed by updating the status
       await DatabaseService().update(
@@ -853,7 +1039,7 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
           'completedAt': DateTime.now().toIso8601String(),
         },
       );
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -873,12 +1059,18 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
     }
   }
 
-  void _showCancelConfirmation(BuildContext context, String beaconId, String userId) {
+  void _showCancelConfirmation(
+    BuildContext context,
+    String beaconId,
+    String userId,
+  ) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Cancel Beacon'),
-        content: const Text('Are you sure you want to cancel this beacon? You\'ll be able to accept other beacons after cancelling.'),
+        content: const Text(
+          'Are you sure you want to cancel this beacon? You\'ll be able to accept other beacons after cancelling.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -889,9 +1081,7 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
               Navigator.of(dialogContext).pop();
               _cancelBeacon(context, beaconId, userId);
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Yes, Cancel'),
           ),
         ],
@@ -976,9 +1166,14 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                           ),
                           SizedBox(height: 4),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -992,6 +1187,23 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                           ),
                         ],
                       ),
+                    ),
+                    // Listen button for accessibility (Text-to-Speech)
+                    IconButton(
+                      tooltip: 'Listen',
+                      icon: Icon(Icons.volume_up_outlined),
+                      onPressed: () {
+                        final buffer = StringBuffer()
+                          ..writeln('Beacon: $name.')
+                          ..writeln('Category: $category.')
+                          ..writeln('Status: $status.')
+                          ..writeln('Accepted by $acceptedBy user${acceptedBy != 1 ? 's' : ''}.')
+                          ..writeln('Expires ${_formatDateTime(expiryIso)}.');
+                        if (description.isNotEmpty) {
+                          buffer.writeln('Description: $description');
+                        }
+                        ElevenLabsService.instance.speakText(buffer.toString());
+                      },
                     ),
                   ],
                 ),
@@ -1010,10 +1222,14 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                     width: double.infinity,
                     padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceVariant.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withOpacity(0.2),
                       ),
                     ),
                     child: Text(
@@ -1059,6 +1275,27 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
                     label: Text('Accept Beacon'),
                   ),
                 ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final buffer = StringBuffer()
+                        ..writeln('Beacon: $name.')
+                        ..writeln('Category: $category.')
+                        ..writeln('Status: $status.')
+                        ..writeln('Accepted by $acceptedBy user${acceptedBy != 1 ? 's' : ''}.')
+                        ..writeln('Expires ${_formatDateTime(expiryIso)}.');
+                      if (description.isNotEmpty) {
+                        buffer.writeln('Description: $description');
+                      }
+                      ElevenLabsService.instance.speakText(buffer.toString());
+                    },
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('Listen'),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1066,7 +1303,6 @@ class _BeaconPageState extends State<BeaconPage> with SingleTickerProviderStateM
       ),
     );
   }
-
 }
 
 class _AuthorLine extends StatelessWidget {
@@ -1086,7 +1322,10 @@ class _AuthorLine extends StatelessWidget {
       future: _loadName(),
       builder: (context, snapshot) {
         final text = snapshot.data ?? 'Author: ...';
-        return Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[700]));
+        return Text(
+          text,
+          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+        );
       },
     );
   }
@@ -1120,10 +1359,7 @@ class _DetailRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[800],
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey[800]),
           ),
         ),
       ],
