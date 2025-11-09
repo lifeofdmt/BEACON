@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 const String GOOGLE_MAPS_API_KEY = "AIzaSyAS_QlAPSjayKePyn2Xpnxd3QQjylGniN8";
 
+// Gemini API configuration
+const String GEMINI_API_KEY_ENV = 'GEMINI_API_KEY';
+const String GEMINI_API_KEY = ''; // Set via --dart-define or environment variable
+
 class BeaconCategories {
   static const List<String> all = [
     'Social',

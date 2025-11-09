@@ -9,6 +9,7 @@ import 'package:beacon/views/pages/welcome_page.dart';
 import 'package:flutter_color_picker_wheel/models/button_behaviour.dart';
 import 'package:flutter_color_picker_wheel/widgets/flutter_color_picker_wheel.dart';
 import 'package:beacon/views/mobile/database_service.dart';
+import 'package:beacon/services/gemini_service.dart';
 
 
 class ProfilePage extends StatefulWidget {
@@ -38,6 +39,11 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   ];
   int _currentCharIndex = 0;
   String? _selectedCharacterAsset;
+  
+  // Gemini-generated wolf skin demo
+  Map<String, dynamic>? _generatedWolfSkin;
+  bool _isGeneratingWolf = false;
+  List<Map<String, dynamic>> _generatedWolves = [];
 
   Future<void> _loadUserData() async {
     setState(() {
@@ -171,9 +177,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                           icon: Icon(Icons.chevron_left, color: Colors.white),
                           iconSize: 32,
                           onPressed: _isLoading ? null : () async {
+                            final totalCount = _characterAssets.length + _generatedWolves.length;
                             setState(() {
-                              _currentCharIndex = (_currentCharIndex - 1 + _characterAssets.length) % _characterAssets.length;
-                              _selectedCharacterAsset = _characterAssets[_currentCharIndex];
+                              _currentCharIndex = (_currentCharIndex - 1 + totalCount) % totalCount;
+                              if (_currentCharIndex >= _characterAssets.length) {
+                                final wolfIndex = _currentCharIndex - _characterAssets.length;
+                                _selectedCharacterAsset = _generatedWolves[wolfIndex]['id'];
+                              } else {
+                                _selectedCharacterAsset = _characterAssets[_currentCharIndex];
+                              }
                             });
                             await _updateCharacter(_selectedCharacterAsset!);
                           },
@@ -185,19 +197,43 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                               color: Colors.white,
                               width: 3,
                             ),
+                            gradient: _selectedCharacterAsset?.startsWith('wolf_') == true
+                                ? LinearGradient(colors: [
+                                    Colors.purple.shade700,
+                                    Colors.deepPurple.shade900,
+                                  ])
+                                : null,
                           ),
-                          child: CircleAvatar(
-                            radius: 50,
-                            backgroundImage: AssetImage(_selectedCharacterAsset ?? _characterAssets.first),
-                          ),
+                          child: _selectedCharacterAsset?.startsWith('wolf_') == true
+                              ? CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: Colors.transparent,
+                                  child: Text(
+                                    _generatedWolves.firstWhere(
+                                      (w) => w['id'] == _selectedCharacterAsset,
+                                      orElse: () => {'emoji': '🐺'},
+                                    )['emoji'],
+                                    style: TextStyle(fontSize: 48),
+                                  ),
+                                )
+                              : CircleAvatar(
+                                  radius: 50,
+                                  backgroundImage: AssetImage(_selectedCharacterAsset ?? _characterAssets.first),
+                                ),
                         ),
                         IconButton(
                           icon: Icon(Icons.chevron_right, color: Colors.white),
                           iconSize: 32,
                           onPressed: _isLoading ? null : () async {
+                            final totalCount = _characterAssets.length + _generatedWolves.length;
                             setState(() {
-                              _currentCharIndex = (_currentCharIndex + 1) % _characterAssets.length;
-                              _selectedCharacterAsset = _characterAssets[_currentCharIndex];
+                              _currentCharIndex = (_currentCharIndex + 1) % totalCount;
+                              if (_currentCharIndex >= _characterAssets.length) {
+                                final wolfIndex = _currentCharIndex - _characterAssets.length;
+                                _selectedCharacterAsset = _generatedWolves[wolfIndex]['id'];
+                              } else {
+                                _selectedCharacterAsset = _characterAssets[_currentCharIndex];
+                              }
                             });
                             await _updateCharacter(_selectedCharacterAsset!);
                           },
@@ -226,6 +262,153 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   ],
                 ),
               ),
+              SizedBox(height: 20),
+              
+              // Gemini Wolf Skin Generator Demo
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                elevation: 6,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.purple.shade700,
+                        Colors.deepPurple.shade900,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.auto_awesome, color: Colors.amber),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'AI Wolf Skin Generator',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 12),
+                      if (_generatedWolfSkin != null) ...[
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                _generatedWolfSkin!['emoji'],
+                                style: TextStyle(fontSize: 64),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                _generatedWolfSkin!['name'],
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                _generatedWolfSkin!['description'],
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: 8),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'Rarity: ${_generatedWolfSkin!['rarity']}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                      ],
+                      ElevatedButton.icon(
+                        onPressed: _isGeneratingWolf ? null : () async {
+                          setState(() {
+                            _isGeneratingWolf = true;
+                          });
+                          
+                          try {
+                            final wolfSkin = await GeminiService.instance.generateCustomWolfSkin(
+                              questsCompleted: 5,
+                              userLevel: 3,
+                            );
+                            
+                            setState(() {
+                              _generatedWolfSkin = wolfSkin;
+                              // Add to the list if not already present
+                              if (!_generatedWolves.any((w) => w['id'] == wolfSkin['id'])) {
+                                _generatedWolves.add(wolfSkin);
+                              }
+                              _isGeneratingWolf = false;
+                            });
+                          } catch (e) {
+                            setState(() {
+                              _isGeneratingWolf = false;
+                              _settingsMessage = "Failed to generate wolf: $e";
+                            });
+                          }
+                        },
+                        icon: _isGeneratingWolf
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Icon(Icons.pets),
+                        label: Text(_isGeneratingWolf ? 'Generating...' : 'Generate AI Wolf Skin'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.black,
+                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Trained on character assets',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
               SizedBox(height: 20),
               // Character chooser section
               Card(
@@ -256,58 +439,142 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                         height: 110,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: _characterAssets.length,
+                          itemCount: _characterAssets.length + _generatedWolves.length,
                           separatorBuilder: (_, __) => SizedBox(width: 12),
                           itemBuilder: (context, index) {
-                            final asset = _characterAssets[index];
-                            final isSelected = index == _currentCharIndex;
-                            return GestureDetector(
-                              onTap: () async {
-                                setState(() {
-                                  _currentCharIndex = index;
-                                  _selectedCharacterAsset = asset;
-                                });
-                                await _updateCharacter(asset);
-                              },
-                              child: AnimatedContainer(
-                                duration: Duration(milliseconds: 200),
-                                curve: Curves.easeOut,
-                                padding: EdgeInsets.all(isSelected ? 6 : 4),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  gradient: isSelected
-                                      ? LinearGradient(colors: [
-                                          Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                                          Theme.of(context).colorScheme.secondary.withOpacity(0.2),
-                                        ])
-                                      : null,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context).colorScheme.outlineVariant,
-                                    width: isSelected ? 2 : 1,
+                            // Check if this is a wolf or character asset
+                            final isWolf = index >= _characterAssets.length;
+                            final wolfIndex = index - _characterAssets.length;
+                            
+                            if (isWolf) {
+                              // Display generated wolf
+                              final wolf = _generatedWolves[wolfIndex];
+                              final isSelected = _selectedCharacterAsset == wolf['id'];
+                              
+                              return GestureDetector(
+                                onTap: () async {
+                                  setState(() {
+                                    _selectedCharacterAsset = wolf['id'];
+                                    _currentCharIndex = index;
+                                  });
+                                  await _updateCharacter(wolf['id']);
+                                },
+                                child: AnimatedContainer(
+                                  duration: Duration(milliseconds: 200),
+                                  curve: Curves.easeOut,
+                                  padding: EdgeInsets.all(isSelected ? 6 : 4),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: isSelected
+                                        ? LinearGradient(colors: [
+                                            Colors.purple.shade700,
+                                            Colors.deepPurple.shade900,
+                                          ])
+                                        : LinearGradient(colors: [
+                                            Colors.purple.shade300.withOpacity(0.3),
+                                            Colors.deepPurple.shade300.withOpacity(0.3),
+                                          ]),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? Colors.amber
+                                          : Colors.purple.shade200,
+                                      width: isSelected ? 2 : 1,
+                                    ),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.amber.withOpacity(0.4),
+                                              blurRadius: 10,
+                                              offset: Offset(0, 4),
+                                            )
+                                          ]
+                                        : [],
                                   ),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
-                                            blurRadius: 10,
-                                            offset: Offset(0, 4),
-                                          )
-                                        ]
-                                      : [],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.asset(
-                                    asset,
+                                  child: Container(
                                     width: 90,
                                     height: 90,
-                                    fit: BoxFit.cover,
+                                    alignment: Alignment.center,
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          wolf['emoji'],
+                                          style: TextStyle(fontSize: 40),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            'AI',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
+                              );
+                            } else {
+                              // Display regular character asset
+                              final asset = _characterAssets[index];
+                              final isSelected = index == _currentCharIndex && !_selectedCharacterAsset!.startsWith('wolf_');
+                              
+                              return GestureDetector(
+                                onTap: () async {
+                                  setState(() {
+                                    _currentCharIndex = index;
+                                    _selectedCharacterAsset = asset;
+                                  });
+                                  await _updateCharacter(asset);
+                                },
+                                child: AnimatedContainer(
+                                  duration: Duration(milliseconds: 200),
+                                  curve: Curves.easeOut,
+                                  padding: EdgeInsets.all(isSelected ? 6 : 4),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: isSelected
+                                        ? LinearGradient(colors: [
+                                            Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                            Theme.of(context).colorScheme.secondary.withOpacity(0.2),
+                                          ])
+                                        : null,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.outlineVariant,
+                                      width: isSelected ? 2 : 1,
+                                    ),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                                              blurRadius: 10,
+                                              offset: Offset(0, 4),
+                                            )
+                                          ]
+                                        : [],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.asset(
+                                      asset,
+                                      width: 90,
+                                      height: 90,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
                           },
                         ),
                       ),
