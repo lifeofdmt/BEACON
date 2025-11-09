@@ -104,7 +104,7 @@ class _WelcomePageState extends State<WelcomePage>
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              "Cut The Crap",
+                              "Cut The Crap | Send a Beacon",
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.grey[600],

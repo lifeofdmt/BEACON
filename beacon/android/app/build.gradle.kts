@@ -40,8 +40,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // compileOptions already declared above with Java version; remove desugaring changes
 }
 
 flutter {
     source = "../.."
 }
+
+// Removed coreLibraryDesugaring dependency to revert prior refactor

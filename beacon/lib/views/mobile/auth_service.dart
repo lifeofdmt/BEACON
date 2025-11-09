@@ -1,10 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:beacon/views/mobile/database_service.dart';
 
 ValueNotifier<AuthService> authService = ValueNotifier(AuthService());
 
 class AuthService {
     final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
+        final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: [
+            'email',
+        ]);
 
     User? get currentuser => firebaseAuth.currentUser;
 
@@ -65,6 +70,45 @@ class AuthService {
         await currentuser?.reload();
         return currentuser?.displayName;
     }
+
+        /// Sign in with Google and Firebase; creates user record in Realtime Database if new.
+        Future<UserCredential?> signInWithGoogle() async {
+            try {
+                final googleUser = await _googleSignIn.signIn();
+                if (googleUser == null) {
+                    // User canceled
+                    return null;
+                }
+                final googleAuth = await googleUser.authentication;
+                final credential = GoogleAuthProvider.credential(
+                    idToken: googleAuth.idToken,
+                    accessToken: googleAuth.accessToken,
+                );
+
+                final userCred = await firebaseAuth.signInWithCredential(credential);
+                final user = userCred.user;
+                if (user != null) {
+                    // Create user record if not exists
+                    final snap = await DatabaseService().read(path: 'users/${user.uid}');
+                    if (snap == null) {
+                        await DatabaseService().create(path: 'users/${user.uid}', data: {
+                            'displayName': user.displayName ?? user.email?.split('@').first ?? 'User',
+                            'email': user.email,
+                            'photoURL': user.photoURL,
+                            'createdAt': DateTime.now().toIso8601String(),
+                            'about': '',
+                        });
+                    }
+                }
+                return userCred;
+            } on FirebaseAuthException catch (e) {
+                debugPrint('Google sign-in Firebase error: ${e.code} ${e.message}');
+                rethrow;
+            } catch (e) {
+                debugPrint('Google sign-in error: $e');
+                rethrow;
+            }
+        }
 
 }
 

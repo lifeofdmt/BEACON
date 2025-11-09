@@ -1,9 +1,7 @@
-import 'package:beacon/data/constants.dart';
 import 'package:beacon/data/notifiers.dart';
 import 'package:beacon/views/pages/auth_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -40,34 +38,8 @@ class MyApp extends StatelessWidget
           brightness: isDarkModePage ? Brightness.dark : Brightness.light),
           
       ),
-        home: MyHomePage());
+        home: AuthLayout());
     },);
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  @override
-  void initState() {
-    super.initState();
-    
-  }
-
-  void themeMode()async{
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final bool? repeat = prefs.getBool(KConstants.themeModeKey);
-    isDarkModeNotifier.value = repeat ?? false;
-
-  }
-  @override
-  Widget build(BuildContext context) {
-    return AuthLayout();
   }
 }
 

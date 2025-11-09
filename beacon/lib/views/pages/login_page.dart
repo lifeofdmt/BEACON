@@ -99,8 +99,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         ),
                         SizedBox(height: 10),
                         FilledButton(
-                          onPressed: () {signInWithGoogle();},
-                          style: FilledButton.styleFrom(minimumSize: Size(double.infinity, 50)),
+                          onPressed: _onGooglePressed,
+                          style: FilledButton.styleFrom(minimumSize: Size(double.infinity, 50), backgroundColor: Colors.white, foregroundColor: Colors.black),
                           child: Row(
                             children: [
                               Image.asset("assets/images/google_logo.avif", height: 25),
@@ -149,9 +149,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     }
   }
 
-  void signInWithGoogle() {
-    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) {
-        return WidgetTree();
-      },), (route) => false);
+  Future<void> _onGooglePressed() async {
+    setState(() { errorMessage = ''; });
+    try {
+      final cred = await authService.value.signInWithGoogle();
+      if (cred == null) {
+        // Cancelled
+        return;
+      }
+      if (!mounted) return;
+      selectedValueNotifier.value = 0;
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => WidgetTree()), (r) => false);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() { errorMessage = e.message ?? 'Google sign-in failed'; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { errorMessage = 'Google sign-in error: $e'; });
+    }
   }
 }

@@ -44,6 +44,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   Map<String, dynamic>? _generatedWolfSkin;
   bool _isGeneratingWolf = false;
   final List<Map<String, dynamic>> _generatedWolves = [];
+  // Character tint color
+  Color _characterColor = Colors.amber;
 
   Future<void> _loadUserData() async {
     setState(() {
@@ -66,6 +68,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             } else {
               _selectedCharacterAsset = _characterAssets.first;
               _currentCharIndex = 0;
+            }
+            // Load saved characterColor (supports int or hex string like #FFAABBCC)
+            final savedColor = data['characterColor'];
+            if (savedColor is int) {
+              _characterColor = Color(savedColor);
+            } else if (savedColor is String) {
+              _characterColor = _parseColor(savedColor) ?? _characterColor;
+            } else {
+              _characterColor = Theme.of(context).colorScheme.primary;
             }
           });
         }
@@ -116,6 +127,39 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       setState(() {
         _settingsMessage = "Failed to update character";
       });
+    }
+  }
+
+  Future<void> _updateCharacterColor(Color color) async {
+    try {
+      final user = authService.value.currentuser;
+      if (user != null) {
+        await DatabaseService().update(
+          path: "users/${user.uid}",
+          data: {"characterColor": color.value},
+        );
+        setState(() {
+          _settingsMessage = "Character color updated!";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _settingsMessage = "Failed to update color";
+      });
+    }
+  }
+
+  Color? _parseColor(String input) {
+    try {
+      String hex = input.trim();
+      if (hex.startsWith('#')) hex = hex.substring(1);
+      if (hex.length == 6) {
+        hex = 'FF$hex';
+      }
+      final value = int.parse(hex, radix: 16);
+      return Color(value);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -215,12 +259,27 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                       (w) => w['id'] == _selectedCharacterAsset,
                                       orElse: () => {'emoji': '🐺'},
                                     )['emoji'],
-                                    style: TextStyle(fontSize: 48),
+                                    style: TextStyle(fontSize: 48, color: _characterColor),
                                   ),
                                 )
-                              : CircleAvatar(
-                                  radius: 50,
-                                  backgroundImage: AssetImage(_selectedCharacterAsset ?? _characterAssets.first),
+                              : ClipOval(
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Image.asset(
+                                        _selectedCharacterAsset ?? _characterAssets.first,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                      ),
+                                      // Color tint overlay
+                                      Container(
+                                        width: 100,
+                                        height: 100,
+                                        color: _characterColor.withValues(alpha: 0.35),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                         ),
                         IconButton(
@@ -527,7 +586,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                             } else {
                               // Display regular character asset
                               final asset = _characterAssets[index];
-                              final isSelected = index == _currentCharIndex && !_selectedCharacterAsset!.startsWith('wolf_');
+                              final isSelected = index == _currentCharIndex && !((_selectedCharacterAsset)?.startsWith('wolf_') ?? false);
                               
                               return GestureDetector(
                                 onTap: () async {
@@ -664,8 +723,13 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   Text("Woljie Color: ", style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                   SizedBox(width: 10,),
                   WheelColorPicker(
-                    onSelect: (value) {},
-                    defaultColor: Theme.of(context).colorScheme.primary,
+                    onSelect: (value) async {
+                      setState(() {
+                        _characterColor = value;
+                      });
+                      await _updateCharacterColor(value);
+                    },
+                    defaultColor: _characterColor,
                     behaviour: ButtonBehaviour.clickToOpen,
                     innerRadius: 60,
                     buttonSize: 40,

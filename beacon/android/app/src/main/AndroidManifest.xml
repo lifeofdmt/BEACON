@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Notification permissions removed per feature removal -->
     <application
         android:label="beacon"
         android:name="${applicationName}"
@@ -34,6 +35,9 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyAS_QlAPSjayKePyn2Xpnxd3QQjylGniN8"
               />
+
+        <!-- Ensure scheduled notifications survive device reboot / app update -->
+        <!-- Boot receiver removed -->
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

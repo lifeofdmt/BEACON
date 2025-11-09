@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'dart:typed_data';
+import 'package:characters/characters.dart';
 
 import 'package:beacon/data/constants.dart';
 import 'package:beacon/views/mobile/database_service.dart';
@@ -40,6 +42,7 @@ class _MapWidgetState extends State<MapWidget> {
 
   List<google_maps.LatLng> polylineCoordinates = [];
   LocationData? currentLocation;
+  StreamSubscription<LocationData>? _locationSub;
 
   google_maps.BitmapDescriptor sourceIcon =
       google_maps.BitmapDescriptor.defaultMarker;
@@ -63,19 +66,26 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   void getCurrentLocationStream() async {
-    Location location = Location();
-    google_maps.GoogleMapController googleMapController =
-        await _controller.future;
-    location.onLocationChanged.listen((newLoc) {
+    final location = Location();
+    // Ensure controller is available
+    final googleMapController = await _controller.future;
+    _locationSub?.cancel();
+    _locationSub = location.onLocationChanged.listen((newLoc) {
+      if (!mounted) return;
       currentLocation = newLoc;
-      googleMapController.animateCamera(
-        google_maps.CameraUpdate.newCameraPosition(
-          google_maps.CameraPosition(
-            zoom: 13.5,
-            target: google_maps.LatLng(newLoc.latitude!, newLoc.longitude!),
+      try {
+        googleMapController.animateCamera(
+          google_maps.CameraUpdate.newCameraPosition(
+            google_maps.CameraPosition(
+              zoom: 13.5,
+              target: google_maps.LatLng(newLoc.latitude!, newLoc.longitude!),
+            ),
           ),
-        ),
-      );
+        );
+      } catch (e) {
+        // Ignore if map is disposed or controller invalid
+        debugPrint('animateCamera failed: $e');
+      }
       setState(() {});
     });
   }
@@ -165,42 +175,94 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
+  Future<google_maps.BitmapDescriptor> _createCircularMarkerFromEmoji(String emoji) async {
+    final cacheKey = 'emoji:$emoji';
+    final cached = _markerCache[cacheKey];
+    if (cached != null) return cached;
+
+    try {
+      const double size = 120;
+      final ui.PictureRecorder recorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(recorder);
+
+      // Background circle
+      final Paint bgPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(const Offset(size / 2, size / 2), size / 2, bgPaint);
+
+      // Draw emoji using paragraph
+      final ui.ParagraphBuilder builder = ui.ParagraphBuilder(
+        ui.ParagraphStyle(
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          fontSize: 72,
+        ),
+      )..pushStyle(ui.TextStyle());
+      builder.addText(emoji);
+      final ui.Paragraph paragraph = builder.build();
+      paragraph.layout(const ui.ParagraphConstraints(width: size));
+      final double textHeight = paragraph.height;
+      canvas.drawParagraph(paragraph, Offset(0, (size - textHeight) / 2));
+
+      final ui.Image img = await recorder.endRecording().toImage(size.toInt(), size.toInt());
+      final ByteData? byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      final Uint8List bytes = byteData!.buffer.asUint8List();
+      final descriptor = google_maps.BitmapDescriptor.bytes(bytes);
+      _markerCache[cacheKey] = descriptor;
+      return descriptor;
+    } catch (e) {
+      debugPrint('Error creating emoji marker: $e');
+      return google_maps.BitmapDescriptor.defaultMarker;
+    }
+  }
+
   Future<void> setCustomMarkerIcon() async {
-    // Fetch user characters
+    // Fetch user characters as originally designed
     final sourceChar = await _getUserCharacter(widget.sourceUserId);
     final destChar = await _getUserCharacter(widget.destinationUserId);
     final currentChar = await _getUserCharacter(widget.currentUserId);
 
-    // Create markers from character assets
-    if (sourceChar != null) {
-      sourceIcon = await _createCircularMarkerFromAsset(sourceChar);
-    } else {
-      sourceIcon = await google_maps.BitmapDescriptor.asset(
+    // Helper to decide if a string looks like an asset path
+    bool looksLikeAsset(String s) => s.startsWith('assets/');
+    bool looksLikeEmoji(String s) => RegExp(r'[\u2190-\uFFFF]').hasMatch(s) && s.length <= 4;
+
+    Future<google_maps.BitmapDescriptor> buildIcon(String? charValue) async {
+      if (charValue == null || charValue.isEmpty) {
+        return google_maps.BitmapDescriptor.asset(
+          const ImageConfiguration(),
+          'assets/images/placeholder.png',
+          width: 55,
+        );
+      }
+      // If it's an emoji, render emoji marker
+      if (looksLikeEmoji(charValue)) {
+        return _createCircularMarkerFromEmoji(charValue.characters.first);
+      }
+      // If it's an asset path, attempt to load
+      if (looksLikeAsset(charValue)) {
+        return _createCircularMarkerFromAsset(charValue);
+      }
+      // If it is an id like wolf_..., map to a default wolf asset if exists
+      if (charValue.startsWith('wolf_')) {
+        // Provide a future hook for themed wolf assets. For now fallback to placeholder.
+        return google_maps.BitmapDescriptor.asset(
+          const ImageConfiguration(),
+          'assets/images/placeholder.png',
+          width: 55,
+        );
+      }
+      // Fallback
+      return google_maps.BitmapDescriptor.asset(
         const ImageConfiguration(),
-        "assets/images/placeholder.png",
+        'assets/images/placeholder.png',
         width: 55,
       );
     }
 
-    if (destChar != null) {
-      destinationIcon = await _createCircularMarkerFromAsset(destChar);
-    } else {
-      destinationIcon = await google_maps.BitmapDescriptor.asset(
-        const ImageConfiguration(),
-        "assets/images/placeholder.png",
-        width: 55,
-      );
-    }
-
-    if (currentChar != null) {
-      currentIcon = await _createCircularMarkerFromAsset(currentChar);
-    } else {
-      currentIcon = await google_maps.BitmapDescriptor.asset(
-        const ImageConfiguration(),
-        "assets/images/placeholder.png",
-        width: 55,
-      );
-    }
+  sourceIcon = await buildIcon(sourceChar);
+  destinationIcon = await buildIcon(destChar);
+  currentIcon = await buildIcon(currentChar);
 
     setState(() {
       _iconsLoaded = true;
@@ -244,14 +306,13 @@ class _MapWidgetState extends State<MapWidget> {
   @override
   void initState() {
     super.initState();
-    // Only set source and destination if a beacon has been accepted
+    // Original behavior: use provided source/destination when a beacon is accepted
     if (widget.hasAcceptedBeacon) {
       source = widget.sourceLocation;
       destination = widget.destinationLocation;
     }
 
     locationFuture = fetchInitialLocation();
-    // Parallelize initial setup where possible
     Future.wait([
       setCustomMarkerIcon(),
       locationFuture,
@@ -265,6 +326,7 @@ class _MapWidgetState extends State<MapWidget> {
   void dispose() {
     // Clear marker cache to free memory when widget is disposed
     _markerCache.clear();
+    _locationSub?.cancel();
     super.dispose();
   }
 
@@ -326,7 +388,7 @@ class _MapWidgetState extends State<MapWidget> {
         Set<google_maps.Marker> markers = {};
 
         if (widget.hasAcceptedBeacon && source != null && destination != null) {
-          // Show source (user's starting location), current location, and destination
+          // Original: show source, current location, and destination
           markers.addAll({
             google_maps.Marker(
               markerId: const google_maps.MarkerId("source"),
