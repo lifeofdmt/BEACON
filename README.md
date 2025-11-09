@@ -64,7 +64,7 @@ It’s all about what matters most: **COMMUNITY**.
   <br>
 
 - **Be recommended, favorite, and attend BEACONs** based on the discretion of a Neural Seek AI Agent*  
-  > **Note:** We experienced some complications in the implementation, resulting in its absence from the working version  
+  > **Note:** We experienced some complications in the implementation, resulting in its absence from the working version "neuralseek"
 
   <img src="readme_assets//quests_page.png" alt="Welcome Page" width="50%" height="50%">  
 
