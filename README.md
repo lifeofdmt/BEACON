@@ -44,14 +44,16 @@ It’s all about what matters most: **COMMUNITY**.
 ### Features  
 
 - **Create a profile**
+  <img src="readme_assets//login.png" alt="Login Page" width="50%" height="50%"> 
   <img src="readme_assets//profile_page.png" alt="Profike Page" width="50%" height="50%">
 - **Start a BEACON:** A location broadcast to people with similar interests
   <img src="readme_assets//new_beacon.png" alt="Create Beacon" width="50%" height="50%">  
 - **Be recommended, favorite, and attend BEACONs** based on the discretion of a Neural Seek AI Agent*  
   > **Note:** We experienced some complications in the implementation, resulting in its absence from the working version
   <img src="readme_assets//quests_page.png" alt="Welcome Page" width="50%" height="50%">
-  > <img src="readme_assets//characters.png" alt="Welcome Page" width="50%" height="50%"> 
+  <img src="readme_assets//characters.png" alt="Welcome Page" width="50%" height="50%"> 
 - **Complete quests around campus**, attending club meetings, and connecting with people
+<img src="readme_assets//beacon_page.png" alt="Welcome Page" width="50%" height="50%"> 
 - **Obtain achievements and leaderboard records** for your social perseverance
 <img src="readme_assets//maps.png" alt="Welcome Page" width="50%" height="50%">
 - **Gemini 2.5 Flash** trained on a dataset of quests to generate unique quests   
