@@ -82,7 +82,7 @@ It’s all about what matters most: **COMMUNITY**.
 
 - **Obtain achievements and leaderboard records** for your social perseverance  
 
-  <img src="readme_assets//maps.png" alt="Welcome Page" width="50%" height="50%">  
+  <img src="readme_assets//map.png" alt="Welcome Page" width="50%" height="50%">  
 
   <br>
 
