@@ -1,5 +1,5 @@
 ## BEACON  
-*A campus-based event and friend finder*  
+*cut the crap and get to it*  
 
 ---
 
