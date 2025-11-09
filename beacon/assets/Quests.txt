@@ -1,0 +1,42 @@
+Commuters:
+Find 2 random commuters walking
+Tell 5 commuters which bus they take to go to lot 40
+Ask a commuter how long it takes them to get to SBU
+Ask a commuter how long they stay at campus 
+Visit lot 40
+
+Dorming:
+Find 2 random dormers sitting
+Visit at least 2 different dorming centers
+Ask a dormer what's the best spot to hangout in SBU
+Ask a dormer what's the best place to study
+Ask a dormer how is campus life after school hours
+
+Club:
+Go to 3 different club meetings
+Go to a club meeting relating to your major
+Go to a club meeting not relating to your major
+Join at least one club
+Take a selfie with an advisory board member
+
+Educational:
+Go to the tutoring center for any help
+Help someone with their homework
+Go to a professors office hours
+Form a study group 
+Teach someone material from one of your classes like a professor would
+
+Major mix
+Find a CS major and ask them if Windows or Mac is better?
+Find a AMS major and tell them give their best interpretation of Taylor series
+Find a Chem major and ask what track they plan on going for
+Ask a business major what was their most difficult class
+Ask a English major if having an em dash in an essay complicates things
+
+Social:
+Compliment 2 strangers on campus
+Participate in SBU’s Hackathon
+Have a gym partner
+Host or participate in a volleyball match
+Take a funny selfie with a stranger
+Ask a stranger if they had a good day so far
