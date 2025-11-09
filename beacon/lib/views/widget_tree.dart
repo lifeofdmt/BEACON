@@ -1,5 +1,6 @@
 import 'package:beacon/data/constants.dart';
 import 'package:beacon/data/notifiers.dart';
+import 'package:beacon/views/pages/beacon_page.dart';
 import 'package:beacon/views/pages/home_page.dart';
 import 'package:beacon/views/pages/profile_page.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 List <Widget> pages = [
   HomePage(),
   ProfilePage(),
+  BeaconPage(),
 ];
 
 class WidgetTree extends StatelessWidget {

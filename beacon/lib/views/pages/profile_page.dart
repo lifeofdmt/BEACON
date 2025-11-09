@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:beacon/views/pages/welcome_page.dart';
 import 'package:flutter_color_picker_wheel/models/button_behaviour.dart';
 import 'package:flutter_color_picker_wheel/widgets/flutter_color_picker_wheel.dart';
+import 'package:beacon/views/mobile/database_service.dart';
 
 
 class ProfilePage extends StatefulWidget {
@@ -20,9 +21,58 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnim;
-  final TextEditingController _aboutMeController = TextEditingController(text: "I'm a chill person");
+  final TextEditingController _aboutMeController = TextEditingController();
   bool _editingAboutMe = false;
   String _settingsMessage = "";
+  String _displayName = "";
+  bool _isLoading = true;
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = authService.value.currentuser;
+      if (user != null) {
+        final snapshot = await DatabaseService().read(path: "users/${user.uid}");
+        if (snapshot != null) {
+          final data = snapshot.value as Map<dynamic, dynamic>;
+          setState(() {
+            _displayName = data['displayName'] ?? 'Anonymous';
+            _aboutMeController.text = data['about'];
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _settingsMessage = "Failed to load user data";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _updateAboutMe(String newAbout) async {
+    try {
+      final user = authService.value.currentuser;
+      if (user != null) {
+        await DatabaseService().update(
+          path: "users/${user.uid}",
+          data: {"about": newAbout},
+        );
+        setState(() {
+          _settingsMessage = "About me updated successfully!";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _settingsMessage = "Failed to update about me";
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -30,11 +80,13 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     _controller = AnimationController(vsync: this, duration: Duration(milliseconds: 900));
     _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
     _controller.forward();
+    _loadUserData(); // Load user data when the page initializes
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _aboutMeController.dispose();
     super.dispose();
   }
 
@@ -100,26 +152,24 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                       ],
                     ),
                     SizedBox(height: 16),
-                    FutureBuilder<String?>(
-                      future: authService.value.getCurrentUsername(),
-                      builder: (context, snapshot) {
-                        return Text(
-                          authService.value.currentuser!.displayName ?? 'Anonymous',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                offset: Offset(0, 2),
-                                blurRadius: 4,
-                                color: Colors.black.withOpacity(0.3),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                    if (_isLoading)
+                      CircularProgressIndicator(color: Colors.white)
+                    else
+                      Text(
+                        _displayName,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(0, 2),
+                              blurRadius: 4,
+                              color: Colors.black.withOpacity(0.3),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -152,15 +202,21 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                               Row(
                                 children: [
                                   FilledButton(
-                                    onPressed: () {
-                                      setState(() { _editingAboutMe = false; });
+                                    onPressed: () async {
+                                      await _updateAboutMe(_aboutMeController.text);
+                                      if (mounted) {
+                                        setState(() { _editingAboutMe = false; });
+                                      }
                                     },
                                     child: Text("Save"),
                                   ),
                                   SizedBox(width: 10),
                                   TextButton(
-                                    onPressed: () {
-                                      setState(() { _editingAboutMe = false; _aboutMeController.text = "I'm a chill person"; });
+                                    onPressed: () async {
+                                      await _loadUserData(); // Reload original data
+                                      if (mounted) {
+                                        setState(() { _editingAboutMe = false; });
+                                      }
                                     },
                                     child: Text("Cancel"),
                                   ),

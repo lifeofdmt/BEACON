@@ -1,5 +1,6 @@
 import 'package:beacon/utils/string_utils.dart';
 import 'package:beacon/views/mobile/auth_service.dart';
+import 'package:beacon/views/mobile/database_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:beacon/views/widget_tree.dart';
@@ -108,16 +109,48 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
     );
   }
 
-  void registerUser() async{
+  void registerUser() async {
     try {
-      await authService.value.createAccount(email: controllerEmail.text, password: controllerPassword.text);
-      authService.value.currentuser!.displayName ??  StringUtils.generateMemorable();
-      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) {
-        return WidgetTree();
-      },), (route) => false);
+      setState(() {
+        errorMessage = "";
+      });
+
+      // Create the account
+      await authService.value.createAccount(
+        email: controllerEmail.text,
+        password: controllerPassword.text,
+      );
+
+      // Generate and set a memorable username if none exists
+      final user = authService.value.currentuser;
+      if (user != null && user.displayName == null) {
+        final memorableName = StringUtils.generateMemorable();
+        await user.updateDisplayName(memorableName);
+      }
+
+      // Create the user's data in the database
+      await DatabaseService().create(
+        path: "users/${user?.uid}",
+        data: {
+          "email": controllerEmail.text,
+          "displayName": user?.displayName ?? StringUtils.generateMemorable(),
+          "about": "",
+          "createdAt": DateTime.now().toIso8601String(),
+        },
+      );
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) {
+          return WidgetTree();
+        },), (route) => false);
+      }
     } on FirebaseAuthException catch(e) {
       setState(() {
         errorMessage = e.message ?? 'There is an error';
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = 'An unexpected error occurred';
       });
     }
   }
