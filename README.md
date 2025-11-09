@@ -12,8 +12,4 @@
 - **Complete quests around campus**, attending club meetings, and connecting with people  
 - **Obtain achievements and leaderboard records** for your social perseverance  
 - **Gemini 2.5 Flash** trained on questing model to generate unique questlines  
-- **Gemini** used to generate Wolfie-Emojis  
-
----
-
-*(*Neural Seek AI Agent feature currently unavailable)*  
+- **Gemini** used to generate Wolfie-Emojis
