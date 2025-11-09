@@ -1,3 +1,4 @@
+import 'package:beacon/utils/string_utils.dart';
 import 'package:beacon/views/mobile/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -110,6 +111,7 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
   void registerUser() async{
     try {
       await authService.value.createAccount(email: controllerEmail.text, password: controllerPassword.text);
+      authService.value.currentuser!.displayName ??  StringUtils.generateMemorable();
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) {
         return WidgetTree();
       },), (route) => false);

@@ -1,8 +1,8 @@
 import 'package:beacon/data/constants.dart';
-import 'package:beacon/data/notifiers.dart';
 import 'package:beacon/views/mobile/auth_service.dart';
-import 'package:beacon/views/pages/onboarding.dart';
-import 'package:beacon/views/widget_tree.dart';
+import 'package:beacon/views/pages/change_password.dart';
+import 'package:beacon/views/pages/update_username.dart';
+import 'package:beacon/views/pages/delete_account.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:beacon/views/pages/welcome_page.dart';
@@ -20,9 +20,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnim;
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _aboutMeController = TextEditingController(text: "I'm a chill person");
   bool _editingAboutMe = false;
   String _settingsMessage = "";
@@ -38,9 +35,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   @override
   void dispose() {
     _controller.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _emailController.dispose();
     super.dispose();
   }
 
@@ -55,39 +49,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     }
   }
 
-  void deleteAccount() async {
-    try {
-      await authService.value.deleteAccount(email: _emailController.text, password: _passwordController.text);
-      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) {
-        return WelcomePage();
-      },), (route) => false);
-    } catch (e) {
-      setState(() { _settingsMessage = e.toString(); });
-    }
-  }
-
-  void updateUsername() async {
-    try {
-      await authService.value.updateUsername(username: _usernameController.text);
-      setState(() { _settingsMessage = "Username updated!"; });
-    } catch (e) {
-      setState(() { _settingsMessage = e.toString(); });
-    }
-  }
-
-  void changePassword() async {
-    try {
-      await authService.value.updatePassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-        newPassword: _passwordController.text,
-      );
-      setState(() { _settingsMessage = "Password changed!"; });
-    } catch (e) {
-      setState(() { _settingsMessage = e.toString(); });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
@@ -97,24 +58,72 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedSwitcher(
-                    duration: Duration(milliseconds: 500),
-                    child: Icon(Icons.arrow_left, size: 32, color: Theme.of(context).colorScheme.primary, key: ValueKey("left")),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                      Theme.of(context).colorScheme.secondary.withOpacity(0.7),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: AssetImage("assets/images/logo_transparent.png"),
-                  ),
-                  AnimatedSwitcher(
-                    duration: Duration(milliseconds: 500),
-                    child: Icon(Icons.arrow_right, size: 32, color: Theme.of(context).colorScheme.primary, key: ValueKey("right")),
-                  ),
-                ],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: Duration(milliseconds: 500),
+                          child: Icon(Icons.arrow_left, size: 32, color: Colors.white, key: ValueKey("left")),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 3,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundImage: AssetImage("assets/images/logo_transparent.png"),
+                          ),
+                        ),
+                        AnimatedSwitcher(
+                          duration: Duration(milliseconds: 500),
+                          child: Icon(Icons.arrow_right, size: 32, color: Colors.white, key: ValueKey("right")),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    FutureBuilder<String?>(
+                      future: authService.value.getCurrentUsername(),
+                      builder: (context, snapshot) {
+                        return Text(
+                          authService.value.currentuser!.displayName ?? 'Anonymous',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                offset: Offset(0, 2),
+                                blurRadius: 4,
+                                color: Colors.black.withOpacity(0.3),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(height: 10),
+              SizedBox(height: 20),
               Text('About Me', style: KTextStyle.titleTealText.copyWith(fontSize: 28, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
               Container(
                 padding: EdgeInsets.all(20),
@@ -207,23 +216,63 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                     children: [
                       Text("Settings", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                       SizedBox(height: 10),
-                      FilledButton(
-                        onPressed: updateUsername,
-                        child: Text("Update Username"),
-                        style: FilledButton.styleFrom(minimumSize: Size(double.infinity, 50))
+                      ListTile(
+                        leading: Icon(Icons.person_outline, color: Theme.of(context).colorScheme.primary),
+                        title: Text("Update Username"),
+                        trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => UpdateUsernamePage()),
+                          );
+                          if (result == true) {
+                            setState(() { _settingsMessage = "Username updated successfully!"; });
+                          }
+                        },
                       ),
-                      SizedBox(height: 10),
-                      FilledButton(
-                        onPressed: changePassword,
-                        child: Text("Change Password"),
-                        style: FilledButton.styleFrom(minimumSize: Size(double.infinity, 50))
+                      Divider(),
+                      ListTile(
+                        leading: Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.primary),
+                        title: Text("Change Password"),
+                        trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => ChangePasswordPage()),
+                          );
+                          if (result == true) {
+                            setState(() { _settingsMessage = "Password changed successfully!"; });
+                          }
+                        },
                       ),
-                      SizedBox(height: 10),
-                      FilledButton(
-                        onPressed: deleteAccount,
-                        style: FilledButton.styleFrom(backgroundColor: Colors.redAccent, 
-                        minimumSize: Size(double.infinity, 50)),
-                        child: Text("Delete Account"),
+                      Divider(),
+                      ListTile(
+                        leading: Icon(Icons.delete_forever, color: Colors.red),
+                        title: Text("Delete Account", style: TextStyle(color: Colors.red)),
+                        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.red),
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text("Delete Account"),
+                            content: Text("Are you sure you want to delete your account? This action cannot be undone."),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: Text("Cancel"),
+                              ),
+                              FilledButton(
+                                onPressed: () {
+                                  Navigator.pop(context); // Close the dialog
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) {
+                                    return DeleteAccountPage();
+                                  }));
+                                },
+                                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                child: Text("Delete"),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       SizedBox(height: 10),
                       AnimatedSwitcher(

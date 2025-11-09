@@ -59,7 +59,11 @@ class AuthService {
         AuthCredential credential = EmailAuthProvider.credential(email: email, password: password);
         await currentuser!.reauthenticateWithCredential(credential);
         await currentuser!.updatePassword(newPassword);
+    }
 
+    Future<String?> getCurrentUsername() async {
+        await currentuser?.reload();
+        return currentuser?.displayName;
     }
 
 }
